@@ -1,0 +1,50 @@
+generator client {
+  provider     = "prisma-client"
+  output       = "../src/generated/prisma"
+  moduleFormat = "esm"
+  runtime      = "nodejs"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model DokumenPermohonan {
+  id                 String               @id @default(uuid()) @db.Uuid
+  pendaftaranId      String               @db.VarChar(64)
+  kodePermohonan     String               @db.VarChar(64)
+  persyaratanId      String               @db.VarChar(64)
+  userId             String               @db.VarChar(64)
+  fileNameOriginal   String               @db.VarChar(255)
+  fileNameUuid       String               @unique @db.VarChar(255)
+  filePath           String               @unique @db.VarChar(512)
+  mimeType           String               @db.VarChar(100)
+  fileSizeBytes      BigInt
+  magicBytesHex      String               @db.VarChar(32)
+  magicBytesVerified Boolean              @default(false)
+  sha256Hash         String               @db.Char(64)
+  clamavScanStatus   String               @default("CLEAN") @db.VarChar(32)
+  clamavSignature    String?              @db.VarChar(255)
+  isActive           Boolean              @default(true)
+  logs               DokumenAccessLog[]
+  createdAt          DateTime             @default(now()) @db.Timestamptz
+  updatedAt          DateTime             @default(now()) @updatedAt @db.Timestamptz
+
+  @@index([pendaftaranId])
+  @@index([userId])
+  @@map("dokumen_permohonan")
+}
+
+model DokumenAccessLog {
+  id         String            @id @default(uuid()) @db.Uuid
+  dokumenId  String            @db.Uuid
+  dokumen    DokumenPermohonan @relation(fields: [dokumenId], references: [id], onDelete: Cascade)
+  userId     String            @db.VarChar(64)
+  userRole   String            @db.VarChar(32)
+  action     String            @db.VarChar(32) // 'VIEW', 'DOWNLOAD'
+  ipAddress  String            @db.VarChar(45)
+  userAgent  String?           @db.Text
+  accessedAt DateTime          @default(now()) @db.Timestamptz
+
+  @@map("dokumen_access_logs")
+}

@@ -1,0 +1,41 @@
+generator client {
+  provider     = "prisma-client"
+  output       = "../src/generated/prisma"
+  moduleFormat = "esm"
+  runtime      = "nodejs"
+}
+
+datasource db {
+  provider = "mysql"
+}
+
+model BeasiswaPelatihan {
+  id               String        @id @default(cuid())
+  kodeBeasiswa     String        @unique @db.VarChar(64)
+  namaPelatihan    String        @db.VarChar(255)
+  deskripsi        String        @db.Text
+  kuota            Int
+  tglMulaiDaftar   DateTime
+  tglSelesaiDaftar DateTime
+  isActive         Boolean       @default(true)
+  persyaratan      Persyaratan[]
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
+
+  @@map("beasiswa_pelatihan")
+}
+
+model Persyaratan {
+  id               String            @id @default(cuid())
+  beasiswaId       String
+  beasiswa         BeasiswaPelatihan @relation(fields: [beasiswaId], references: [id], onDelete: Cascade)
+  namaPersyaratan  String            @db.VarChar(255)
+  tipeDokumen      String            @db.VarChar(64)
+  isMandatory      Boolean           @default(true)
+  maxFileSizeBytes BigInt            @default(5242880) // 5 MB
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+
+  @@index([beasiswaId])
+  @@map("persyaratan")
+}

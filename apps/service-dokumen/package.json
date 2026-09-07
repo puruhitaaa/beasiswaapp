@@ -1,0 +1,38 @@
+{
+  "name": "@beasiswaapp/service-dokumen",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "src/index.ts",
+  "scripts": {
+    "build": "tsdown",
+    "check-types": "tsc --noEmit",
+    "dev": "tsx watch src/index.ts",
+    "db:generate": "prisma generate",
+    "db:push": "prisma db push",
+    "db:migrate": "prisma migrate dev",
+    "postinstall": "prisma generate",
+    "start": "node dist/index.mjs"
+  },
+  "dependencies": {
+    "@beasiswaapp/contracts": "workspace:*",
+    "@fastify/cors": "^11.3.0",
+    "@fastify/multipart": "^9.0.3",
+    "@prisma/adapter-pg": "^7.9.1",
+    "@prisma/client": "^7.9.1",
+    "dotenv": "catalog:",
+    "fastify": "^5.10.0",
+    "file-type": "^21.0.0",
+    "pg": "^8.13.3",
+    "zod": "catalog:"
+  },
+  "devDependencies": {
+    "@beasiswaapp/config": "workspace:*",
+    "@types/node": "catalog:",
+    "@types/pg": "^8.11.11",
+    "prisma": "^7.9.1",
+    "tsdown": "^0.22.14",
+    "tsx": "^4.23.1",
+    "typescript": "catalog:"
+  }
+}

@@ -1,0 +1,96 @@
+generator client {
+  provider     = "prisma-client"
+  output       = "../src/generated/prisma"
+  moduleFormat = "esm"
+  runtime      = "nodejs"
+}
+
+datasource db {
+  provider = "mysql"
+}
+
+model Pendaftaran {
+  id                   String                       @id @default(cuid())
+  kodePermohonan       String                       @unique @db.VarChar(64)
+  userId               String                       @db.VarChar(64)
+  beasiswaId           String                       @db.VarChar(64)
+  beasiswaNamaSnapshot String?                      @db.VarChar(255)
+  status               String                       @default("DRAFT") @db.VarChar(32)
+  stepWizardTerakhir   Int                          @default(1)
+  submittedAt          DateTime?
+  biodata              BiodataPendaftar?
+  pendidikan           RiwayatPendidikanPekerjaan?
+  verifikasi           VerifikasiAdministrasi?
+  wawancara            PenilaianWawancara?
+  createdAt            DateTime                     @default(now())
+  updatedAt            DateTime                     @updatedAt
+
+  @@index([userId])
+  @@index([beasiswaId])
+  @@index([status])
+  @@map("pendaftaran")
+}
+
+model BiodataPendaftar {
+  id            String      @id @default(cuid())
+  pendaftaranId String      @unique
+  pendaftaran   Pendaftaran @relation(fields: [pendaftaranId], references: [id], onDelete: Cascade)
+  nik           String      @db.VarChar(16)
+  namaLengkap   String      @db.VarChar(255)
+  tglLahir      String      @db.VarChar(10)
+  alamat        String      @db.Text
+  noHp          String      @db.VarChar(20)
+  noWa          String      @db.VarChar(20)
+  email         String      @db.VarChar(255)
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+
+  @@map("biodata_pendaftar")
+}
+
+model RiwayatPendidikanPekerjaan {
+  id                 String      @id @default(cuid())
+  pendaftaranId      String      @unique
+  pendaftaran        Pendaftaran @relation(fields: [pendaftaranId], references: [id], onDelete: Cascade)
+  pendidikanTerakhir String      @db.VarChar(32)
+  namaInstansi       String      @db.VarChar(255)
+  jurusan            String      @db.VarChar(255)
+  pekerjaanSaatIni   String      @db.VarChar(100)
+  createdAt          DateTime    @default(now())
+  updatedAt          DateTime    @updatedAt
+
+  @@map("riwayat_pendidikan_pekerjaan")
+}
+
+model VerifikasiAdministrasi {
+  id                   String      @id @default(cuid())
+  pendaftaranId        String      @unique
+  pendaftaran          Pendaftaran @relation(fields: [pendaftaranId], references: [id], onDelete: Cascade)
+  verifikatorId        String      @db.VarChar(64)
+  checklistKtp         Boolean     @default(false)
+  checklistKk          Boolean     @default(false)
+  checklistIjazah      Boolean     @default(false)
+  checklistRekomendasi Boolean     @default(false)
+  catatanRevisi        String?     @db.Text
+  statusKeputusan      String      @db.VarChar(32)
+  verifiedAt           DateTime    @default(now())
+  createdAt            DateTime    @default(now())
+  updatedAt            DateTime    @updatedAt
+
+  @@map("verifikasi_administrasi")
+}
+
+model PenilaianWawancara {
+  id              String      @id @default(cuid())
+  pendaftaranId   String      @unique
+  pendaftaran     Pendaftaran @relation(fields: [pendaftaranId], references: [id], onDelete: Cascade)
+  interviewerId   String      @db.VarChar(64)
+  nilaiWawancara  Float
+  catatanEvaluasi String      @db.Text
+  statusHasil     String      @db.VarChar(32)
+  evaluatedAt     DateTime    @default(now())
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+
+  @@map("penilaian_wawancara")
+}
