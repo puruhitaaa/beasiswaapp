@@ -1,14 +1,3 @@
-import { Button } from "@beasiswaapp/ui/components/button";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuGroup,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@beasiswaapp/ui/components/dropdown-menu";
-import { Skeleton } from "@beasiswaapp/ui/components/skeleton";
 import { Link, useNavigate } from "@tanstack/react-router";
 
 import { authClient } from "@/lib/auth-client";
@@ -18,45 +7,40 @@ export default function UserMenu() {
   const { data: session, isPending } = authClient.useSession();
 
   if (isPending) {
-    return <Skeleton className="h-9 w-24" />;
+    return <div className="bg-muted h-9 w-24 animate-pulse rounded-md" />;
   }
 
   if (!session) {
     return (
-      <Link to="/login">
-        <Button variant="outline">Sign In</Button>
+      <Link
+        to="/login"
+        className="border-input bg-background hover:bg-accent hover:text-accent-foreground inline-flex h-9 items-center justify-center rounded-md border px-3 py-1.5 text-sm font-medium transition-colors"
+      >
+        Sign In
       </Link>
     );
   }
 
   return (
-    <DropdownMenu>
-      <DropdownMenuTrigger render={<Button variant="outline" />}>
-        {session.user.name}
-      </DropdownMenuTrigger>
-      <DropdownMenuContent className="bg-card">
-        <DropdownMenuGroup>
-          <DropdownMenuLabel>My Account</DropdownMenuLabel>
-          <DropdownMenuSeparator />
-          <DropdownMenuItem>{session.user.email}</DropdownMenuItem>
-          <DropdownMenuItem
-            variant="destructive"
-            onClick={() => {
-              authClient.signOut({
-                fetchOptions: {
-                  onSuccess: () => {
-                    navigate({
-                      to: "/",
-                    });
-                  },
-                },
-              });
-            }}
-          >
-            Sign Out
-          </DropdownMenuItem>
-        </DropdownMenuGroup>
-      </DropdownMenuContent>
-    </DropdownMenu>
+    <div className="flex items-center gap-3">
+      <span className="text-sm font-medium">{session.user.name}</span>
+      <button
+        type="button"
+        onClick={() => {
+          authClient.signOut({
+            fetchOptions: {
+              onSuccess: () => {
+                navigate({
+                  to: "/",
+                });
+              },
+            },
+          });
+        }}
+        className="bg-destructive text-destructive-foreground inline-flex h-9 cursor-pointer items-center justify-center rounded-md px-3 py-1.5 text-sm font-medium transition-opacity hover:opacity-90"
+      >
+        Sign Out
+      </button>
+    </div>
   );
 }

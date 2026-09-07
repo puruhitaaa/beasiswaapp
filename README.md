@@ -7,7 +7,7 @@ This project was created with [Better-T-Stack](https://github.com/AmanVarshney01
 - **TypeScript** - For type safety and improved developer experience
 - **TanStack Router** - File-based routing with full type safety
 - **TailwindCSS** - Utility-first CSS for rapid UI development
-- **Shared UI package** - shadcn/ui primitives live in `packages/ui`
+- **Shared UI package** - Shared styles and design tokens live in `packages/ui`
 - **Fastify** - Fast, low-overhead web framework
 - **Node.js** - Runtime environment
 - **Prisma** - TypeScript-first ORM
@@ -42,34 +42,14 @@ Then, run the development server:
 pnpm run dev
 ```
 
-Open [http://localhost:3001](http://localhost:3001) in your browser to see the web application.
-The API is running at [http://localhost:3000](http://localhost:3000).
+Open [http://localhost:3001](http://localhost:3001) in your browser to see the web application. The API is running at [http://localhost:3000](http://localhost:3000).
 
 ## UI Customization
 
-React web apps in this stack share shadcn/ui primitives through `packages/ui`.
+React web apps in this stack share global styling, theme variables, and design tokens through `packages/ui`.
 
 - Change design tokens and global styles in `packages/ui/src/styles/globals.css`
-- Update shared primitives in `packages/ui/src/components/*`
-- Adjust shadcn aliases or style config in `packages/ui/components.json` and `apps/web/components.json`
-
-### Add more shared components
-
-Run this from the project root to add more primitives to the shared UI package:
-
-```bash
-npx shadcn@latest add accordion dialog popover sheet table -c packages/ui
-```
-
-Import shared components like this:
-
-```tsx
-import { Button } from "@beasiswaapp/ui/components/button";
-```
-
-### Add app-specific blocks
-
-If you want to add app-specific blocks instead of shared primitives, run the shadcn CLI from `apps/web`.
+- Custom UI components are styled directly using Tailwind CSS classes.
 
 ## Deployment
 
@@ -98,7 +78,7 @@ beasiswaapp/
 │   ├── web/         # Frontend application (React + TanStack Router)
 │   └── server/      # Backend API (Fastify)
 ├── packages/
-│   ├── ui/          # Shared shadcn/ui components and styles
+│   ├── ui/          # Shared UI styles and design tokens
 │   ├── auth/        # Authentication configuration & logic
 │   └── db/          # Database schema & queries
 ```
