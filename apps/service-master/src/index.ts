@@ -1,7 +1,7 @@
 import "dotenv/config";
 import fastifyCors from "@fastify/cors";
 import Fastify from "fastify";
-import { prisma } from "./db.js";
+import { masterRepository } from "./repository.js";
 
 const fastify = Fastify({
   logger: {
@@ -36,45 +36,19 @@ fastify.get("/health", async () => {
 
 // 2. Public Catalogue: List Active Scholarships
 fastify.get("/api/master/beasiswa", async () => {
-  const list = await prisma.beasiswaPelatihan.findMany({
-    where: { isActive: true },
-    include: {
-      persyaratan: true,
-    },
-    orderBy: { createdAt: "desc" },
-  });
-
-  return list.map((b) => ({
-    ...b,
-    persyaratan: b.persyaratan.map((p) => ({
-      ...p,
-      maxFileSizeBytes: Number(p.maxFileSizeBytes),
-    })),
-  }));
+  return masterRepository.findAllActive();
 });
 
 // 3. Scholarship Details
 fastify.get("/api/master/beasiswa/:id", async (request, reply) => {
   const { id } = request.params as { id: string };
-
-  const beasiswa = await prisma.beasiswaPelatihan.findUnique({
-    where: { id },
-    include: {
-      persyaratan: true,
-    },
-  });
+  const beasiswa = await masterRepository.findById(id);
 
   if (!beasiswa || !beasiswa.isActive) {
     return reply.status(404).send({ error: "Beasiswa tidak ditemukan atau sudah ditutup." });
   }
 
-  return {
-    ...beasiswa,
-    persyaratan: beasiswa.persyaratan.map((p) => ({
-      ...p,
-      maxFileSizeBytes: Number(p.maxFileSizeBytes),
-    })),
-  };
+  return beasiswa;
 });
 
 // 4. Internal Validation Lookup (Called by service-transaksi during application creation)
@@ -85,10 +59,7 @@ fastify.get("/internal/beasiswa/:id", async (request, reply) => {
   }
 
   const { id } = request.params as { id: string };
-  const beasiswa = await prisma.beasiswaPelatihan.findUnique({
-    where: { id },
-    include: { persyaratan: true },
-  });
+  const beasiswa = await masterRepository.findById(id);
 
   if (!beasiswa) {
     return reply.status(404).send({ error: "Beasiswa tidak ditemukan." });
@@ -106,10 +77,7 @@ fastify.get("/internal/beasiswa/:id", async (request, reply) => {
     namaPelatihan: beasiswa.namaPelatihan,
     kuota: beasiswa.kuota,
     isOpen,
-    persyaratan: beasiswa.persyaratan.map((p) => ({
-      ...p,
-      maxFileSizeBytes: Number(p.maxFileSizeBytes),
-    })),
+    persyaratan: beasiswa.persyaratan,
   };
 });
 
@@ -121,33 +89,17 @@ fastify.post("/api/master/beasiswa", async (request, reply) => {
   }
 
   const body = request.body as any;
-  const created = await prisma.beasiswaPelatihan.create({
-    data: {
-      kodeBeasiswa: body.kodeBeasiswa,
-      namaPelatihan: body.namaPelatihan,
-      deskripsi: body.deskripsi,
-      kuota: Number(body.kuota),
-      tglMulaiDaftar: new Date(body.tglMulaiDaftar),
-      tglSelesaiDaftar: new Date(body.tglSelesaiDaftar),
-      persyaratan: {
-        create: (body.persyaratan || []).map((p: any) => ({
-          namaPersyaratan: p.namaPersyaratan,
-          tipeDokumen: p.tipeDokumen,
-          isMandatory: p.isMandatory ?? true,
-          maxFileSizeBytes: BigInt(p.maxFileSizeBytes || 5242880),
-        })),
-      },
-    },
-    include: { persyaratan: true },
+  const created = await masterRepository.create({
+    kodeBeasiswa: body.kodeBeasiswa,
+    namaPelatihan: body.namaPelatihan,
+    deskripsi: body.deskripsi,
+    kuota: Number(body.kuota),
+    tglMulaiDaftar: new Date(body.tglMulaiDaftar || Date.now()),
+    tglSelesaiDaftar: new Date(body.tglSelesaiDaftar || "2026-12-31"),
+    persyaratan: body.persyaratan || [],
   });
 
-  return reply.status(201).send({
-    ...created,
-    persyaratan: created.persyaratan.map((p) => ({
-      ...p,
-      maxFileSizeBytes: Number(p.maxFileSizeBytes),
-    })),
-  });
+  return reply.status(201).send(created);
 });
 
 // 6. Admin: Soft Delete Scholarship
@@ -158,10 +110,11 @@ fastify.delete("/api/master/beasiswa/:id", async (request, reply) => {
   }
 
   const { id } = request.params as { id: string };
-  await prisma.beasiswaPelatihan.update({
-    where: { id },
-    data: { isActive: false },
-  });
+  const ok = await masterRepository.softDelete(id);
+
+  if (!ok) {
+    return reply.status(404).send({ error: "Beasiswa tidak ditemukan." });
+  }
 
   return { success: true, message: "Beasiswa berhasil dinonaktifkan." };
 });

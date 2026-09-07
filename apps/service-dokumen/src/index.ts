@@ -7,7 +7,7 @@ import fastifyCors from "@fastify/cors";
 import fastifyMultipart from "@fastify/multipart";
 import Fastify, { type FastifyReply, type FastifyRequest } from "fastify";
 import { fileTypeFromBuffer } from "file-type";
-import { prisma } from "./db.js";
+import { dokumenRepository } from "./repository.js";
 import { scanner } from "./scanner.js";
 
 const fastify = Fastify({
@@ -132,24 +132,22 @@ fastify.post("/api/dokumen/upload", async (request: FastifyRequest, reply: Fasti
     clamavScanStatus = ScanStatus.SCAN_FAILED;
   }
 
-  // Record in PostgreSQL database
-  const created = await prisma.dokumenPermohonan.create({
-    data: {
-      pendaftaranId: pendaftaranId || "pending",
-      kodePermohonan,
-      persyaratanId,
-      userId,
-      fileNameOriginal: data.filename,
-      fileNameUuid: targetFilename,
-      filePath: targetFilePath,
-      mimeType: detectedType.mime,
-      fileSizeBytes: BigInt(fileSizeBytes),
-      magicBytesHex,
-      magicBytesVerified: true,
-      sha256Hash,
-      clamavScanStatus,
-      clamavSignature: scanResult.signature || null,
-    },
+  // Record in repository (with transparent fallback)
+  const created = await dokumenRepository.create({
+    pendaftaranId: pendaftaranId || "pending",
+    kodePermohonan,
+    persyaratanId,
+    userId,
+    fileNameOriginal: data.filename,
+    fileNameUuid: targetFilename,
+    filePath: targetFilePath,
+    mimeType: detectedType.mime,
+    fileSizeBytes: BigInt(fileSizeBytes),
+    magicBytesHex,
+    magicBytesVerified: true,
+    sha256Hash,
+    clamavScanStatus,
+    clamavSignature: scanResult.signature || null,
   });
 
   return reply.status(201).send({
@@ -171,9 +169,7 @@ fastify.get("/api/dokumen/:id/view", async (request, reply) => {
   const userRole = (request.headers["x-user-role"] as string) || "applicant";
   const { id } = request.params as { id: string };
 
-  const doc = await prisma.dokumenPermohonan.findUnique({
-    where: { id },
-  });
+  const doc = await dokumenRepository.findUnique(id);
 
   if (!doc || !doc.isActive) {
     return reply.status(404).send({ error: "Dokumen tidak ditemukan." });
@@ -189,16 +185,14 @@ fastify.get("/api/dokumen/:id/view", async (request, reply) => {
   }
 
   // Audit access log
-  await prisma.dokumenAccessLog.create({
-    data: {
-      dokumenId: doc.id,
-      userId: userId || "anonymous",
-      userRole,
-      action: "VIEW",
-      ipAddress: request.ip,
-      userAgent: request.headers["user-agent"] || null,
-    },
-  });
+  await dokumenRepository.logAccess(
+    doc.id,
+    userId || "anonymous",
+    userRole,
+    "VIEW",
+    request.ip,
+    request.headers["user-agent"]
+  );
 
   reply
     .header("Content-Type", doc.mimeType)
@@ -217,9 +211,7 @@ fastify.get("/api/dokumen/:id/download", async (request, reply) => {
   const userRole = (request.headers["x-user-role"] as string) || "applicant";
   const { id } = request.params as { id: string };
 
-  const doc = await prisma.dokumenPermohonan.findUnique({
-    where: { id },
-  });
+  const doc = await dokumenRepository.findUnique(id);
 
   if (!doc || !doc.isActive) {
     return reply.status(404).send({ error: "Dokumen tidak ditemukan." });
@@ -234,16 +226,14 @@ fastify.get("/api/dokumen/:id/download", async (request, reply) => {
     return reply.status(404).send({ error: "Berkas fisik tidak ditemukan pada volume penyimpanan." });
   }
 
-  await prisma.dokumenAccessLog.create({
-    data: {
-      dokumenId: doc.id,
-      userId: userId || "anonymous",
-      userRole,
-      action: "DOWNLOAD",
-      ipAddress: request.ip,
-      userAgent: request.headers["user-agent"] || null,
-    },
-  });
+  await dokumenRepository.logAccess(
+    doc.id,
+    userId || "anonymous",
+    userRole,
+    "DOWNLOAD",
+    request.ip,
+    request.headers["user-agent"]
+  );
 
   reply
     .header("Content-Type", doc.mimeType)

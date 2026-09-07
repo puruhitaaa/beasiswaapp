@@ -11,7 +11,8 @@
     "check-types": "tsc --noEmit"
   },
   "dependencies": {
-    "bootstrap": "catalog:"
+    "bootstrap": "catalog:",
+    "bootstrap-icons": "^1.13.1"
   },
   "devDependencies": {
     "@beasiswaapp/config": "workspace:*",

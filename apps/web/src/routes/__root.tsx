@@ -6,9 +6,6 @@ import {
 import { TanStackRouterDevtools } from "@tanstack/react-router-devtools";
 import { Toaster } from "sonner";
 
-import Header from "@/components/header";
-import { ThemeProvider } from "@/components/theme-provider";
-
 import "../index.css";
 
 export interface RouterAppContext {}
@@ -38,21 +35,11 @@ function RootComponent() {
   return (
     <>
       <HeadContent />
-      <ThemeProvider
-        attribute="data-bs-theme"
-        defaultTheme="dark"
-        disableTransitionOnChange
-        storageKey="vite-ui-theme"
-      >
-        <div className="d-flex flex-column min-vh-100">
-          <Header />
-          <main className="flex-grow-1">
-            <Outlet />
-          </main>
-        </div>
-        <Toaster richColors />
-      </ThemeProvider>
-      <TanStackRouterDevtools position="bottom-left" />
+      <div className="min-vh-100 d-flex flex-column bg-light text-dark">
+        <Outlet />
+      </div>
+      <Toaster richColors position="top-right" />
     </>
   );
 }
+

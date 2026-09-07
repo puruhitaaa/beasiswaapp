@@ -67,3 +67,11 @@ export const penilaianWawancaraInputSchema = z.object({
 export type PenilaianWawancaraInput = z.infer<
   typeof penilaianWawancaraInputSchema
 >;
+
+export const daftarUlangSchema = z.object({
+  statusKesediaan: z.enum(["bersedia", "mengundurkan"]),
+  catatan: z.string().optional(),
+});
+
+export type DaftarUlangInput = z.infer<typeof daftarUlangSchema>;
+

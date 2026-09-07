@@ -1,4 +1,5 @@
 @import "bootstrap/dist/css/bootstrap.min.css";
+@import "bootstrap-icons/font/bootstrap-icons.css";
 
 /* App base styling */
 :root {
@@ -11,3 +12,155 @@ html,
 body {
   height: 100%;
 }
+
+/* Landing & Cards */
+.hero-section {
+  background: linear-gradient(135deg, #0d6efd 0%, #0a58ca 100%);
+  color: white;
+  padding: 80px 0;
+}
+.card-program {
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+.card-program:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 10px 20px rgba(0, 0, 0, 0.1);
+}
+.card-disabled {
+  background-color: #f8f9fa;
+  opacity: 0.75;
+}
+.card-closed {
+  background-color: #f8f9fa;
+  border-color: #dee2e6 !important;
+  opacity: 0.8;
+}
+
+/* Wizard */
+.wizard-steps .nav-link {
+  color: #6c757d;
+  border-radius: 0;
+  border-bottom: 3px solid #e9ecef;
+  cursor: pointer;
+}
+.wizard-steps .nav-link.active {
+  color: #0d6efd;
+  background-color: transparent;
+  border-bottom: 3px solid #0d6efd;
+  font-weight: bold;
+}
+.wizard-steps .nav-link.completed {
+  color: #198754;
+  border-bottom: 3px solid #198754;
+}
+
+.form-control:disabled,
+.form-select:disabled {
+  background-color: #e9ecef;
+  cursor: not-allowed;
+}
+
+/* Hero Pengumuman Lulus */
+.hero-lulus {
+  background: linear-gradient(135deg, #198754 0%, #0f5132 100%);
+  color: white;
+  border-radius: 12px;
+}
+.badge-status {
+  font-size: 0.9rem;
+  padding: 8px 14px;
+}
+
+/* Internal Layout & Sidebar */
+.sidebar {
+  width: 260px;
+  min-height: 100vh;
+  background: linear-gradient(180deg, #0d6efd 0%, #0a58ca 100%);
+  color: white;
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: 100;
+}
+.sidebar .nav-link {
+  color: rgba(255, 255, 255, 0.85);
+  border-radius: 8px;
+  margin-bottom: 4px;
+  padding: 10px 14px;
+  font-weight: 500;
+  cursor: pointer;
+  text-decoration: none;
+  display: block;
+}
+.sidebar .nav-link:hover,
+.sidebar .nav-link.active {
+  color: #ffffff;
+  background: rgba(255, 255, 255, 0.2);
+}
+.main-content {
+  margin-left: 260px;
+  padding: 25px;
+  min-height: 100vh;
+  background-color: #f8f9fa;
+}
+@media (max-width: 768px) {
+  .sidebar {
+    width: 100%;
+    min-height: auto;
+    position: relative;
+  }
+  .main-content {
+    margin-left: 0;
+  }
+}
+
+.card-stat {
+  border: none;
+  border-radius: 10px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+  transition: transform 0.2s;
+}
+.card-stat:hover {
+  transform: translateY(-3px);
+}
+.extra-small {
+  font-size: 0.75rem;
+}
+
+/* Login Card */
+.login-card {
+  border: none;
+  border-radius: 16px;
+  box-shadow: 0 10px 30px rgba(13, 110, 253, 0.12);
+  overflow: hidden;
+  width: 100%;
+  max-width: 440px;
+}
+.login-header {
+  background: linear-gradient(135deg, #0d6efd 0%, #0a58ca 100%);
+  color: #ffffff;
+  padding: 35px 25px 25px 25px;
+}
+.icon-box {
+  width: 65px;
+  height: 65px;
+  background: rgba(255, 255, 255, 0.2);
+  backdrop-filter: blur(5px);
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.btn-login {
+  background: linear-gradient(135deg, #0d6efd 0%, #0a58ca 100%);
+  border: none;
+  padding: 12px;
+  font-weight: 600;
+  border-radius: 8px;
+  transition: all 0.3s ease;
+}
+.btn-login:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 5px 15px rgba(13, 110, 253, 0.3);
+}
+

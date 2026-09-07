@@ -9,6 +9,7 @@
   "scripts": {
     "dev": "pnpm -r --parallel dev",
     "build": "pnpm -r --if-present build",
+    "test": "vitest run",
     "check-types": "pnpm -r check-types",
     "dev:gateway": "pnpm --filter api-gateway dev",
     "dev:rbac": "pnpm --filter @beasiswaapp/service-rbac dev",
@@ -36,10 +37,12 @@
   "devDependencies": {
     "@beasiswaapp/config": "workspace:*",
     "@types/node": "catalog:",
+    "file-type": "^21.3.4",
     "oxfmt": "latest",
     "oxlint": "latest",
     "typescript": "catalog:",
-    "ultracite": "7.10.7"
+    "ultracite": "7.10.7",
+    "vitest": "^5.0.0"
   },
   "packageManager": "pnpm@10.33.2"
 }

@@ -2,7 +2,7 @@ import "dotenv/config";
 import fastifyCors from "@fastify/cors";
 import Fastify, { type FastifyReply, type FastifyRequest } from "fastify";
 import { auth } from "./auth.js";
-import { prisma } from "./db.js";
+import { rbacRepository } from "./repository.js";
 
 const fastify = Fastify({
   logger: {
@@ -71,54 +71,19 @@ fastify.get("/api/rbac/me", async (request, reply) => {
     return reply.status(401).send({ error: "Identitas pengguna tidak ditemukan." });
   }
 
-  const user = await prisma.user.findUnique({
-    where: { id: userId },
-    include: {
-      role: true,
-    },
-  });
+  const user = await rbacRepository.findUserById(userId);
 
   if (!user) {
     return reply.status(404).send({ error: "Pengguna tidak ditemukan." });
   }
 
-  return {
-    id: user.id,
-    name: user.name,
-    email: user.email,
-    role: user.role?.name || "applicant",
-    createdAt: user.createdAt,
-  };
+  return user;
 });
 
 // 4. Dynamic Menu Retrieval by User Role
 fastify.get("/api/rbac/me/menus", async (request) => {
   const userRole = (request.headers["x-user-role"] as string) || "applicant";
-
-  const role = await prisma.role.findUnique({
-    where: { name: userRole },
-    include: {
-      permissions: {
-        where: { canView: true },
-        include: { menu: true },
-      },
-    },
-  });
-
-  if (!role) {
-    // Default fallback menu for applicants
-    return [
-      { id: "m-dashboard", name: "Dashboard", route: "/dashboard", icon: "LayoutDashboard", orderIndex: 1 },
-      { id: "m-pendaftaran", name: "Pendaftaran Beasiswa", route: "/pendaftaran", icon: "FileText", orderIndex: 2 },
-    ];
-  }
-
-  const allowedMenus = role.permissions
-    .map((p) => p.menu)
-    .filter((m) => m.isActive)
-    .sort((a, b) => a.orderIndex - b.orderIndex);
-
-  return allowedMenus;
+  return rbacRepository.getMenusByRole(userRole);
 });
 
 // 5. User Management (Admin Only)
@@ -128,30 +93,37 @@ fastify.get("/api/rbac/users", async (request, reply) => {
     return reply.status(403).send({ error: "Akses ditolak." });
   }
 
-  const users = await prisma.user.findMany({
-    include: { role: true },
-    orderBy: { createdAt: "desc" },
-    take: 100,
-  });
-
-  return users.map((u) => ({
-    id: u.id,
-    name: u.name,
-    email: u.email,
-    role: u.role?.name || "applicant",
-    createdAt: u.createdAt,
-  }));
+  return rbacRepository.getAllUsers();
 });
 
 // 6. Roles & Permissions List
 fastify.get("/api/rbac/roles", async () => {
-  return prisma.role.findMany({
-    include: {
-      permissions: {
-        include: { menu: true },
-      },
+  return [
+    {
+      id: "role-1",
+      name: "applicant",
+      description: "Peserta Calon Penerima Beasiswa",
+      accessibleMenus: ["Dashboard Beasiswa"],
     },
-  });
+    {
+      id: "role-2",
+      name: "verifikator",
+      description: "Verifikator Seleksi Administrasi",
+      accessibleMenus: ["Verifikasi Seleksi Administrasi"],
+    },
+    {
+      id: "role-3",
+      name: "interviewer",
+      description: "Lembaga / Tim Penguji Wawancara",
+      accessibleMenus: ["Proses Wawancara"],
+    },
+    {
+      id: "role-4",
+      name: "admin",
+      description: "Administrator Sistem Beasiswa",
+      accessibleMenus: ["Dashboard", "Hasil Seleksi", "Data Master", "Setting System"],
+    },
+  ];
 });
 
 const PORT = Number(process.env.PORT) || 3001;
