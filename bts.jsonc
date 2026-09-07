@@ -1,0 +1,28 @@
+// Better-T-Stack project metadata
+//
+// Keep this file to use the `add` command.
+// Add addons: pnpm dlx create-better-t-stack@latest add
+//
+// Docs: https://better-t-stack.dev/docs
+// Stack Builder: https://better-t-stack.dev/new
+
+{
+  "$schema": "https://r2.better-t-stack.dev/schema.json",
+  "version": "3.42.2",
+  "createdAt": "2026-09-07T10:10:58.815Z",
+  "reproducibleCommand": "pnpm create better-t-stack@latest beasiswaapp --frontend tanstack-router --backend fastify --runtime node --database mysql --orm prisma --api none --auth better-auth --payments none --addons oxlint ultracite --examples none --db-setup docker --web-deploy docker --server-deploy docker --git --package-manager pnpm --install",
+  "database": "mysql",
+  "orm": "prisma",
+  "backend": "fastify",
+  "runtime": "node",
+  "frontend": ["tanstack-router"],
+  "addons": ["oxlint", "ultracite"],
+  "examples": [],
+  "auth": "better-auth",
+  "payments": "none",
+  "packageManager": "pnpm",
+  "dbSetup": "docker",
+  "api": "none",
+  "webDeploy": "docker",
+  "serverDeploy": "docker",
+}

@@ -1,0 +1,24 @@
+{
+  "$schema": "https://ui.shadcn.com/schema.json",
+  "style": "base-lyra",
+  "rsc": false,
+  "tsx": true,
+  "tailwind": {
+    "config": "",
+    "css": "src/styles/globals.css",
+    "baseColor": "neutral",
+    "cssVariables": true,
+    "prefix": ""
+  },
+  "iconLibrary": "lucide",
+  "aliases": {
+    "components": "@beasiswaapp/ui/components",
+    "utils": "@beasiswaapp/ui/lib/utils",
+    "hooks": "@beasiswaapp/ui/hooks",
+    "lib": "@beasiswaapp/ui/lib",
+    "ui": "@beasiswaapp/ui/components"
+  },
+  "menuColor": "default",
+  "menuAccent": "subtle",
+  "registries": {}
+}
