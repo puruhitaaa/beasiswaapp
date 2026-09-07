@@ -5,28 +5,34 @@ import UserMenu from "./user-menu";
 
 export default function Header() {
   const links = [
-    { to: "/", label: "Home" },
-    { to: "/dashboard", label: "Dashboard" },
+    { label: "Home", to: "/" },
+    { label: "Dashboard", to: "/dashboard" },
   ] as const;
 
   return (
-    <div>
-      <div className="flex flex-row items-center justify-between px-2 py-1">
-        <nav className="flex gap-4 text-lg">
-          {links.map(({ to, label }) => {
-            return (
-              <Link key={to} to={to}>
+    <header className="border-bottom">
+      <div className="container-fluid d-flex align-items-center justify-content-between px-3 py-2">
+        <nav className="d-flex align-items-center gap-3">
+          {links.map(({ to, label }) => 
+            (
+              <Link
+                key={to}
+                to={to}
+                className="nav-link text-body text-decoration-none"
+                activeProps={{
+                  className: "nav-link text-body text-decoration-none fw-bold",
+                }}
+              >
                 {label}
               </Link>
-            );
-          })}
+            )
+          )}
         </nav>
-        <div className="flex items-center gap-2">
+        <div className="d-flex align-items-center gap-2">
           <ModeToggle />
           <UserMenu />
         </div>
       </div>
-      <hr />
-    </div>
+    </header>
   );
 }

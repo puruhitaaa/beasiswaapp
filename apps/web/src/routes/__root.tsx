@@ -39,14 +39,16 @@ function RootComponent() {
     <>
       <HeadContent />
       <ThemeProvider
-        attribute="class"
+        attribute="data-bs-theme"
         defaultTheme="dark"
         disableTransitionOnChange
         storageKey="vite-ui-theme"
       >
-        <div className="grid h-svh grid-rows-[auto_1fr]">
+        <div className="d-flex flex-column min-vh-100">
           <Header />
-          <Outlet />
+          <main className="flex-grow-1">
+            <Outlet />
+          </main>
         </div>
         <Toaster richColors />
       </ThemeProvider>

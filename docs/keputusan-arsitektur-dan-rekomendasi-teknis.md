@@ -20,7 +20,7 @@ Tujuan utama dokumen ini adalah:
 ```mermaid
 flowchart TD
     subgraph ClientZone["1. Lapisan Klien (Frontend)"]
-        WEB["React 19 + TanStack Router + Tailwind v4\nMulti-step Wizard (Auto-save on Next)\nRole-based UI (Applicant, Verifikator, Interviewer, Admin)"]
+        WEB["React 19 + TanStack Router + Bootstrap 5\nMulti-step Wizard (Auto-save on Next)\nRole-based UI (Applicant, Verifikator, Interviewer, Admin)"]
     end
 
     subgraph EdgeZone["2. Lapisan Integrasi Publik (Single Public Entry)"]
@@ -475,7 +475,7 @@ beasiswaapp/
 │   │   ├── src/index.ts
 │   │   ├── Dockerfile
 │   │   └── package.json
-│   └── web/                         # React 19, TanStack Router, TanStack Form, Tailwind v4 (Port 3001)
+│   └── web/                         # React 19, TanStack Router, TanStack Form, Bootstrap 5 (Port 3001)
 │       ├── src/routes/
 │       ├── Dockerfile
 │       └── package.json
@@ -689,7 +689,7 @@ Komponen form yang sama digunakan untuk 3 kondisi status tanpa duplikasi kode:
 
 ### 8.4 Komponen Antarmuka (`packages/ui` & `apps/web`)
 
-Komponen antarmuka dikembangkan secara modular dan konsisten menggunakan token desain Tailwind CSS pada `packages/ui/src/styles/globals.css`. Primitif antarmuka kustom disusun langsung dengan elemen semantik dan utilitas Tailwind.
+Komponen antarmuka dikembangkan secara modular dan konsisten menggunakan Bootstrap 5 pada `packages/ui/src/styles/globals.css`. Primitif antarmuka kustom disusun langsung dengan elemen semantik dan utilitas Bootstrap 5.
 
 ---
 

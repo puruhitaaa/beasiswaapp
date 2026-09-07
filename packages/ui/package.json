@@ -5,19 +5,19 @@
   "type": "module",
   "exports": {
     ".": "./src/index.ts",
-    "./globals.css": "./src/styles/globals.css",
-    "./postcss.config": "./postcss.config.mjs"
+    "./globals.css": "./src/styles/globals.css"
   },
   "scripts": {
     "check-types": "tsc --noEmit"
   },
-  "dependencies": {},
+  "dependencies": {
+    "bootstrap": "catalog:"
+  },
   "devDependencies": {
     "@beasiswaapp/config": "workspace:*",
-    "@tailwindcss/postcss": "^4.3.3",
+    "@types/bootstrap": "catalog:",
     "@types/react": "catalog:",
     "@types/react-dom": "catalog:",
-    "tailwindcss": "catalog:",
     "typescript": "catalog:"
   }
 }

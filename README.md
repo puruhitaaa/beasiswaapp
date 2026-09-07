@@ -6,7 +6,7 @@ This project was created with [Better-T-Stack](https://github.com/AmanVarshney01
 
 - **TypeScript** - For type safety and improved developer experience
 - **TanStack Router** - File-based routing with full type safety
-- **TailwindCSS** - Utility-first CSS for rapid UI development
+- **Bootstrap** - Modern responsive styling and components
 - **Shared UI package** - Shared styles and design tokens live in `packages/ui`
 - **Fastify** - Fast, low-overhead web framework
 - **Node.js** - Runtime environment
@@ -49,7 +49,7 @@ Open [http://localhost:3001](http://localhost:3001) in your browser to see the w
 React web apps in this stack share global styling, theme variables, and design tokens through `packages/ui`.
 
 - Change design tokens and global styles in `packages/ui/src/styles/globals.css`
-- Custom UI components are styled directly using Tailwind CSS classes.
+- UI components are styled using Bootstrap classes.
 
 ## Deployment
 

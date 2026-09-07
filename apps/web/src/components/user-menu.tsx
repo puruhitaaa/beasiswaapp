@@ -7,23 +7,27 @@ export default function UserMenu() {
   const { data: session, isPending } = authClient.useSession();
 
   if (isPending) {
-    return <div className="bg-muted h-9 w-24 animate-pulse rounded-md" />;
+    return (
+      <div className="placeholder-glow">
+        <span
+          className="placeholder rounded"
+          style={{ display: "inline-block", height: "2rem", width: "5rem" }}
+        />
+      </div>
+    );
   }
 
   if (!session) {
     return (
-      <Link
-        to="/login"
-        className="border-input bg-background hover:bg-accent hover:text-accent-foreground inline-flex h-9 items-center justify-center rounded-md border px-3 py-1.5 text-sm font-medium transition-colors"
-      >
+      <Link to="/login" className="btn btn-outline-primary btn-sm">
         Sign In
       </Link>
     );
   }
 
   return (
-    <div className="flex items-center gap-3">
-      <span className="text-sm font-medium">{session.user.name}</span>
+    <div className="d-flex align-items-center gap-3">
+      <span className="small fw-semibold">{session.user.name}</span>
       <button
         type="button"
         onClick={() => {
@@ -37,7 +41,7 @@ export default function UserMenu() {
             },
           });
         }}
-        className="bg-destructive text-destructive-foreground inline-flex h-9 cursor-pointer items-center justify-center rounded-md px-3 py-1.5 text-sm font-medium transition-opacity hover:opacity-90"
+        className="btn btn-danger btn-sm"
       >
         Sign Out
       </button>

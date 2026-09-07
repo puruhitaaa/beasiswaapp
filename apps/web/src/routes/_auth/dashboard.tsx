@@ -8,9 +8,9 @@ function RouteComponent() {
   const { session } = Route.useRouteContext();
 
   return (
-    <div>
-      <h1>Dashboard</h1>
-      <p>Welcome {session.data?.user.name}</p>
+    <div className="container py-4">
+      <h1 className="h3 mb-3">Dashboard</h1>
+      <p className="lead">Welcome {session.data?.user.name}</p>
     </div>
   );
 }
