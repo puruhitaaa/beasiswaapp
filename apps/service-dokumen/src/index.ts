@@ -245,6 +245,6 @@ fastify.get("/api/dokumen/:id/download", async (request, reply) => {
   return reply.send(stream);
 });
 
-const PORT = Number(process.env.PORT) || 3004;
+const PORT = Number(process.env.PORT) || 3014;
 await fastify.listen({ port: PORT, host: "0.0.0.0" });
 console.log(`🚀 Service Dokumen berjalan pada http://0.0.0.0:${PORT}`);

@@ -119,6 +119,6 @@ fastify.delete("/api/master/beasiswa/:id", async (request, reply) => {
   return { success: true, message: "Beasiswa berhasil dinonaktifkan." };
 });
 
-const PORT = Number(process.env.PORT) || 3002;
+const PORT = Number(process.env.PORT) || 3012;
 await fastify.listen({ port: PORT, host: "0.0.0.0" });
 console.log(`🚀 Service Master berjalan pada http://0.0.0.0:${PORT}`);

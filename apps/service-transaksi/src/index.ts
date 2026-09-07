@@ -381,6 +381,24 @@ fastify.get("/api/transaksi/admin/statistics", async (request, reply) => {
   return repository.getStatistics();
 });
 
+// 14b. Admin: List All Applications
+fastify.get("/api/transaksi/admin/pendaftaran", async (request, reply) => {
+  const userRole = request.headers["x-user-role"] as string;
+  if (userRole !== "admin" && userRole !== "superadmin") {
+    return reply.status(403).send({ error: "Akses administrator diperlukan." });
+  }
+
+  return repository.getAll();
+});
+fastify.get("/api/transaksi/pendaftaran", async (request, reply) => {
+  const userRole = request.headers["x-user-role"] as string;
+  if (userRole !== "admin" && userRole !== "superadmin") {
+    return reply.status(403).send({ error: "Akses administrator diperlukan." });
+  }
+
+  return repository.getAll();
+});
+
 // 15. Admin: Export Excel (CSV with UTF-8 BOM)
 fastify.get("/api/transaksi/admin/export-excel", async (request, reply) => {
   const userRole = request.headers["x-user-role"] as string;
@@ -435,6 +453,6 @@ fastify.get("/api/transaksi/admin/export-excel", async (request, reply) => {
   return reply.send(csvContent);
 });
 
-const PORT = Number(process.env.PORT) || 3003;
+const PORT = Number(process.env.PORT) || 3013;
 await fastify.listen({ port: PORT, host: "0.0.0.0" });
 console.log(`🚀 Service Transaksi berjalan pada http://0.0.0.0:${PORT}`);

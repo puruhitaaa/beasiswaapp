@@ -1,13 +1,15 @@
 import React, { useState } from "react";
 import { toast } from "sonner";
 import { appStore } from "@/lib/store";
+import { masterApi } from "@/lib/api";
 
 interface BeasiswaModalProps {
   isOpen: boolean;
   onClose: () => void;
+  onSuccess?: () => void;
 }
 
-export const BeasiswaModal: React.FC<BeasiswaModalProps> = ({ isOpen, onClose }) => {
+export const BeasiswaModal: React.FC<BeasiswaModalProps> = ({ isOpen, onClose, onSuccess }) => {
   const [namaPelatihan, setNamaPelatihan] = useState("");
   const [kuota, setKuota] = useState(50);
   const [metode, setMetode] = useState("Daring (Online)");
@@ -16,31 +18,47 @@ export const BeasiswaModal: React.FC<BeasiswaModalProps> = ({ isOpen, onClose })
 
   if (!isOpen) return null;
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!namaPelatihan.trim()) {
       toast.error("Nama program beasiswa wajib diisi.");
       return;
     }
 
-    appStore.addBeasiswa({
-      kodeBeasiswa: `PRG-${Date.now().toString().slice(-4)}`,
-      namaPelatihan,
-      deskripsi: deskripsi || "Program pelatihan kejuruan bersertifikat resmi.",
-      kuota,
-      metode,
-      batasPendaftaran,
-      status: "buka",
-      isActive: true,
-      persyaratanKhusus: [
-        "Warga Negara Indonesia (WNI), usia 18 - 35 tahun.",
-        "Pendidikan minimal SMA/SMK sederajat.",
-      ],
-      dokumenWajib: ["Scan KTP & KK", "Scan Ijazah Terakhir", "Surat Rekomendasi"],
-    });
+    try {
+      await masterApi.createBeasiswa({
+        kodeBeasiswa: `PRG-${Date.now().toString().slice(-4)}`,
+        namaPelatihan,
+        deskripsi: deskripsi || "Program pelatihan kejuruan bersertifikat resmi.",
+        kuota,
+        metode,
+        batasPendaftaran,
+        tglMulaiDaftar: new Date().toISOString(),
+        tglSelesaiDaftar: "2026-12-31T23:59:59Z",
+      });
 
-    toast.success("Program beasiswa berhasil ditambahkan!");
-    onClose();
+      appStore.addBeasiswa({
+        kodeBeasiswa: `PRG-${Date.now().toString().slice(-4)}`,
+        namaPelatihan,
+        deskripsi: deskripsi || "Program pelatihan kejuruan bersertifikat resmi.",
+        kuota,
+        metode,
+        batasPendaftaran,
+        status: "buka",
+        isActive: true,
+        persyaratanKhusus: [
+          "Warga Negara Indonesia (WNI), usia 18 - 35 tahun.",
+          "Pendidikan minimal SMA/SMK sederajat.",
+        ],
+        dokumenWajib: ["Scan KTP & KK", "Scan Ijazah Terakhir", "Surat Rekomendasi"],
+      });
+
+      toast.success("Program beasiswa berhasil ditambahkan!");
+      onSuccess?.();
+      onClose();
+    } catch (err: any) {
+      toast.error(err.message || "Gagal menambahkan program beasiswa.");
+    }
   };
 
   return (

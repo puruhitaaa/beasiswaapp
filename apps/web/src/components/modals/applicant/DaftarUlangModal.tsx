@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { toast } from "sonner";
 import { appStore } from "@/lib/store";
+import { transaksiApi } from "@/lib/api";
 
 interface DaftarUlangModalProps {
   isOpen: boolean;
@@ -20,15 +21,20 @@ export const DaftarUlangModal: React.FC<DaftarUlangModalProps> = ({
 
   if (!isOpen) return null;
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    appStore.confirmDaftarUlang(pendaftaranId, kesediaan, catatan);
-    if (kesediaan === "bersedia") {
-      toast.success("Konfirmasi kehadiran Anda telah berhasil tercatat. Silakan pantau grup koordinasi!");
-    } else {
-      toast.info("Konfirmasi pengunduran diri telah tercatat oleh panitia.");
+    try {
+      await transaksiApi.confirmDaftarUlang(pendaftaranId, kesediaan, catatan);
+      appStore.confirmDaftarUlang(pendaftaranId, kesediaan, catatan);
+      if (kesediaan === "bersedia") {
+        toast.success("Konfirmasi kehadiran Anda telah berhasil tercatat. Silakan pantau grup koordinasi!");
+      } else {
+        toast.info("Konfirmasi pengunduran diri telah tercatat oleh panitia.");
+      }
+      onClose();
+    } catch (err: any) {
+      toast.error(err.message || "Gagal menyimpan konfirmasi daftar ulang.");
     }
-    onClose();
   };
 
   return (

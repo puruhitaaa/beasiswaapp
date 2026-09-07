@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { toast } from "sonner";
 import { appStore } from "@/lib/store";
+import { transaksiApi } from "@/lib/api";
 import type { PendaftaranRecord } from "@/types";
 
 interface VerifikasiModalProps {
@@ -8,6 +9,7 @@ interface VerifikasiModalProps {
   onClose: () => void;
   pendaftaran: PendaftaranRecord | null;
   onPreviewFile?: (fileName: string) => void;
+  onSuccess?: () => void;
 }
 
 export const VerifikasiModal: React.FC<VerifikasiModalProps> = ({
@@ -15,6 +17,7 @@ export const VerifikasiModal: React.FC<VerifikasiModalProps> = ({
   onClose,
   pendaftaran,
   onPreviewFile,
+  onSuccess,
 }) => {
   const [activeTab, setActiveTab] = useState<1 | 2 | 3 | 4>(1);
   const [statusKeputusan, setStatusKeputusan] = useState<"disetujui" | "revisi" | "ditolak">("disetujui");
@@ -78,8 +81,9 @@ export const VerifikasiModal: React.FC<VerifikasiModalProps> = ({
     }));
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!pendaftaran) return;
     if (!catatanVerifikator.trim()) {
       toast.error("Catatan verifikator wajib diisi.");
       return;
@@ -91,15 +95,30 @@ export const VerifikasiModal: React.FC<VerifikasiModalProps> = ({
       catatanPerbaikan: val.catatanPerbaikan,
     }));
 
-    appStore.submitVerifikasiDecision(
-      pendaftaran.id,
-      statusKeputusan,
-      catatanVerifikator,
-      checklistArray
-    );
+    try {
+      await transaksiApi.submitVerifikasiDecision(pendaftaran.id, {
+        statusKeputusan,
+        catatanVerifikator,
+        catatanRevisi: catatanVerifikator,
+        checklistKtp: docChecks["req-ktp"]?.isSesuai ?? true,
+        checklistKk: docChecks["req-kk"]?.isSesuai ?? true,
+        checklistIjazah: docChecks["req-ijazah"]?.isSesuai ?? true,
+        checklistRekomendasi: docChecks["req-rekom"]?.isSesuai ?? true,
+      });
 
-    toast.success(`Keputusan verifikasi berhasil disimpan: Status ${statusKeputusan.toUpperCase()}`);
-    onClose();
+      appStore.submitVerifikasiDecision(
+        pendaftaran.id,
+        statusKeputusan,
+        catatanVerifikator,
+        checklistArray
+      );
+
+      toast.success(`Keputusan verifikasi berhasil disimpan: Status ${statusKeputusan.toUpperCase()}`);
+      onSuccess?.();
+      onClose();
+    } catch (err: any) {
+      toast.error(err.message || "Gagal menyimpan keputusan verifikasi.");
+    }
   };
 
   return (

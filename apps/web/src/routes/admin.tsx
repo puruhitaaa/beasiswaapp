@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { toast } from "sonner";
 import { appStore } from "@/lib/store";
+import { authApi, masterApi, transaksiApi } from "@/lib/api";
 import { SidebarInternal } from "@/components/layout/SidebarInternal";
 import { PageHeaderInternal } from "@/components/layout/PageHeaderInternal";
 import { BeasiswaModal } from "@/components/modals/internal/BeasiswaModal";
@@ -34,22 +35,72 @@ function AdminPageComponent() {
   const [selectedRole, setSelectedRole] = useState<MasterRole | null>(null);
   const [isRoleModalOpen, setIsRoleModalOpen] = useState(false);
 
-  // Store data states
+  // Store & backend data states
   const [pendaftarList, setPendaftarList] = useState<PendaftaranRecord[]>([]);
   const [beasiswaList, setBeasiswaList] = useState<BeasiswaProgram[]>([]);
   const [persyaratanList, setPersyaratanList] = useState<MasterPersyaratan[]>([]);
   const [userList, setUserList] = useState<UserInternal[]>([]);
   const [roleList, setRoleList] = useState<MasterRole[]>([]);
   const [menuList, setMenuList] = useState<MasterMenu[]>([]);
+  const [backendStats, setBackendStats] = useState<any>(null);
 
-  const reloadData = () => {
-    setPendaftarList(appStore.getAllPendaftaran());
-    setBeasiswaList(appStore.getBeasiswaList());
-    setPersyaratanList(appStore.getPersyaratanList());
-    setUserList(appStore.getInternalUsers());
-    setRoleList(appStore.getRoles());
-    setMenuList(appStore.getMenus());
-    setCurrentUser(appStore.getCurrentUser());
+  const reloadData = async () => {
+    try {
+      await authApi.ensureSession("admin", "admin@beasiswa.go.id", "Admin: Yosep Rohayadi");
+      const [apps, beasiswa, users, roles, menus, stats] = await Promise.allSettled([
+        transaksiApi.getAllApplications(),
+        masterApi.getBeasiswaList(),
+        authApi.getUsers(),
+        authApi.getRoles(),
+        authApi.getMenus(),
+        transaksiApi.getStatistics(),
+      ]);
+
+      if (apps.status === "fulfilled" && Array.isArray(apps.value)) {
+        setPendaftarList(apps.value);
+      } else {
+        setPendaftarList(appStore.getAllPendaftaran());
+      }
+
+      if (beasiswa.status === "fulfilled" && Array.isArray(beasiswa.value)) {
+        setBeasiswaList(beasiswa.value);
+      } else {
+        setBeasiswaList(appStore.getBeasiswaList());
+      }
+
+      if (users.status === "fulfilled" && Array.isArray(users.value)) {
+        setUserList(users.value);
+      } else {
+        setUserList(appStore.getInternalUsers());
+      }
+
+      if (roles.status === "fulfilled" && Array.isArray(roles.value)) {
+        setRoleList(roles.value);
+      } else {
+        setRoleList(appStore.getRoles());
+      }
+
+      if (menus.status === "fulfilled" && Array.isArray(menus.value)) {
+        setMenuList(menus.value);
+      } else {
+        setMenuList(appStore.getMenus());
+      }
+
+      if (stats.status === "fulfilled" && stats.value) {
+        setBackendStats(stats.value);
+      }
+
+      setPersyaratanList(appStore.getPersyaratanList());
+      setCurrentUser(appStore.getCurrentUser());
+    } catch (err) {
+      console.error("Failed to reload admin data:", err);
+      setPendaftarList(appStore.getAllPendaftaran());
+      setBeasiswaList(appStore.getBeasiswaList());
+      setPersyaratanList(appStore.getPersyaratanList());
+      setUserList(appStore.getInternalUsers());
+      setRoleList(appStore.getRoles());
+      setMenuList(appStore.getMenus());
+    }
   };
 
   useEffect(() => {
@@ -61,78 +112,55 @@ function AdminPageComponent() {
   }, []);
 
   // Export to Excel / CSV format
-  const handleExportExcel = () => {
-    const headers = [
-      "No",
-      "NIK",
-      "Nama Peserta",
-      "Program Pelatihan",
-      "Status Administrasi",
-      "Nilai Wawancara",
-      "Status Wawancara",
-      "Status Final",
-    ];
+  const handleExportExcel = async () => {
+    try {
+      await transaksiApi.exportExcel();
+      toast.success("File Rekap Hasil Seleksi berhasil diexport!");
+    } catch (err: any) {
+      toast.error(err.message || "Gagal mengunduh file rekap hasil seleksi.");
+    }
+  };
 
-    const rows = pendaftarList.map((p, idx) => [
-      idx + 1,
-      `'${p.biodata?.nik || p.userNik}`,
-      p.biodata?.namaLengkap || p.userName,
-      p.beasiswaNama,
-      p.status === "LOLOS_ADMIN" ||
-      p.status === "DALAM_PROSES_WAWANCARA" ||
-      p.status === "LULUS_DITERIMA"
-        ? "Lolos"
-        : p.status === "TIDAK_LOLOS_ADMIN"
-        ? "Tidak Lolos"
-        : "Dalam Proses",
-      p.wawancara?.nilaiWawancara ? p.wawancara.nilaiWawancara.toFixed(2) : "-",
-      p.wawancara?.statusHasil || "-",
-      p.status === "LULUS_DITERIMA" ? "DITERIMA" : p.status,
-    ]);
-
-    const csvContent =
-      "\uFEFF" +
-      [headers, ...rows]
-        .map((row) => row.map((cell) => `"${String(cell).replace(/"/g, '""')}"`).join(","))
-        .join("\r\n");
-
-    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = url;
-    link.setAttribute(
-      "download",
-      `Rekap_Hasil_Seleksi_Beasiswa_${new Date().toISOString().slice(0, 10)}.csv`
-    );
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    toast.success("File Rekap Hasil Seleksi berhasil diexport!");
+  const handleDeleteBeasiswa = async (id: string) => {
+    try {
+      await masterApi.deleteBeasiswa(id);
+      appStore.deleteBeasiswa(id);
+      toast.success("Program beasiswa berhasil dinonaktifkan!");
+      await reloadData();
+    } catch (err: any) {
+      toast.error(err.message || "Gagal menghapus program beasiswa.");
+    }
   };
 
   // Metrics calculation
-  const totalPeserta = pendaftarList.length || 120;
+  const totalPeserta = backendStats?.totalPeserta ?? (pendaftarList.length || 120);
   const prosesAdministrasi =
-    pendaftarList.filter((p) => p.status === "SUBMITTED" || p.status === "REVISI").length || 15;
+    backendStats?.prosesAdministrasi ??
+    (pendaftarList.filter((p) => p.status === "SUBMITTED" || p.status === "REVISI" || p.status === "DALAM_PROSES_ADMIN").length || 15);
   const lulusAdministrasi =
-    pendaftarList.filter(
+    backendStats?.lolosAdministrasi ??
+    (pendaftarList.filter(
       (p) =>
         p.status === "LOLOS_ADMIN" ||
         p.status === "DALAM_PROSES_WAWANCARA" ||
         p.status === "LULUS_DITERIMA"
-    ).length || 95;
+    ).length || 95);
   const tidakLulusAdministrasi =
-    pendaftarList.filter((p) => p.status === "TIDAK_LOLOS_ADMIN").length || 10;
+    backendStats?.gugurAdministrasi ??
+    (pendaftarList.filter((p) => p.status === "TIDAK_LOLOS_ADMIN").length || 10);
   const prosesWawancara =
-    pendaftarList.filter((p) => p.status === "LOLOS_ADMIN" && !p.wawancara?.nilaiWawancara).length || 20;
+    backendStats?.prosesWawancara ??
+    (pendaftarList.filter((p) => p.status === "LOLOS_ADMIN" && !p.wawancara?.nilaiWawancara).length || 20);
   const lulusWawancara =
-    pendaftarList.filter(
+    backendStats?.lulusWawancara ??
+    (pendaftarList.filter(
       (p) => p.wawancara?.statusHasil === "Lulus" || p.status === "LULUS_DITERIMA"
-    ).length || 70;
+    ).length || 70);
   const tidakLulusWawancara =
-    pendaftarList.filter(
+    backendStats?.gagalWawancara ??
+    (pendaftarList.filter(
       (p) => p.wawancara?.statusHasil === "Tidak Lulus" || p.status === "TIDAK_LULUS_WAWANCARA"
-    ).length || 5;
+    ).length || 5);
 
   return (
     <div className="d-flex min-vh-100 bg-light">
@@ -409,10 +437,7 @@ function AdminPageComponent() {
                               </button>
                               <button
                                 className="btn btn-sm btn-danger"
-                                onClick={() => {
-                                  appStore.deleteBeasiswa(b.id);
-                                  toast.success("Program beasiswa berhasil dihapus.");
-                                }}
+                                onClick={() => handleDeleteBeasiswa(b.id)}
                               >
                                 <i className="bi bi-trash"></i>
                               </button>
@@ -735,6 +760,7 @@ function AdminPageComponent() {
       <BeasiswaModal
         isOpen={isBeasiswaModalOpen}
         onClose={() => setIsBeasiswaModalOpen(false)}
+        onSuccess={reloadData}
       />
       <PersyaratanModal
         isOpen={isSyaratModalOpen}

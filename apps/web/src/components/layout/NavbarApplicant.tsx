@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { Link, useNavigate } from "@tanstack/react-router";
 import { appStore } from "@/lib/store";
+import { authApi } from "@/lib/api";
 import type { ApplicationStatus } from "@/types";
 
 interface NavbarApplicantProps {
@@ -19,6 +20,7 @@ export const NavbarApplicant: React.FC<NavbarApplicantProps> = ({
   const navigate = useNavigate();
 
   const handleLogout = () => {
+    authApi.logout();
     appStore.setCurrentUser(null);
     navigate({ to: "/" });
   };

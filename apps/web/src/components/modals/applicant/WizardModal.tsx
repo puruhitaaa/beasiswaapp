@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { toast } from "sonner";
 import { appStore } from "@/lib/store";
+import { dokumenApi, transaksiApi } from "@/lib/api";
 import type { BiodataData, DokumenUploadItem, PendaftaranRecord, PendidikanData } from "@/types";
 
 interface WizardModalProps {
@@ -141,21 +142,36 @@ export const WizardModal: React.FC<WizardModalProps> = ({
     return true;
   };
 
-  const handleNext = () => {
+  const handleNext = async () => {
     if (currentStep === 1) {
       if (!validateStep1()) return;
-      appStore.saveStep1(pendaftaran.id, biodata);
-      toast.success("Bagian 1 tersimpan otomatis!");
-      setCurrentStep(2);
+      try {
+        await transaksiApi.saveStep1(pendaftaran.id, biodata);
+        appStore.saveStep1(pendaftaran.id, biodata);
+        toast.success("Bagian 1 tersimpan otomatis!");
+        setCurrentStep(2);
+      } catch (err: any) {
+        toast.error(err.message || "Gagal menyimpan biodata.");
+      }
     } else if (currentStep === 2) {
       if (!validateStep2()) return;
-      appStore.saveStep2(pendaftaran.id, pendidikan);
-      toast.success("Bagian 2 tersimpan otomatis!");
-      setCurrentStep(3);
+      try {
+        await transaksiApi.saveStep2(pendaftaran.id, pendidikan);
+        appStore.saveStep2(pendaftaran.id, pendidikan);
+        toast.success("Bagian 2 tersimpan otomatis!");
+        setCurrentStep(3);
+      } catch (err: any) {
+        toast.error(err.message || "Gagal menyimpan riwayat pendidikan.");
+      }
     } else if (currentStep === 3) {
-      appStore.saveStep3(pendaftaran.id, documents);
-      toast.success("Dokumen berhasil diperbarui!");
-      setCurrentStep(4);
+      try {
+        await transaksiApi.saveStep3(pendaftaran.id, documents);
+        appStore.saveStep3(pendaftaran.id, documents);
+        toast.success("Dokumen berhasil diperbarui!");
+        setCurrentStep(4);
+      } catch (err: any) {
+        toast.error(err.message || "Gagal memperbarui berkas dokumen.");
+      }
     }
   };
 
@@ -165,18 +181,25 @@ export const WizardModal: React.FC<WizardModalProps> = ({
     }
   };
 
-  const handleSaveDraft = () => {
-    if (currentStep === 1 && validateStep1()) {
-      appStore.saveStep1(pendaftaran.id, biodata);
-    } else if (currentStep === 2 && validateStep2()) {
-      appStore.saveStep2(pendaftaran.id, pendidikan);
-    } else if (currentStep === 3) {
-      appStore.saveStep3(pendaftaran.id, documents);
+  const handleSaveDraft = async () => {
+    try {
+      if (currentStep === 1 && validateStep1()) {
+        await transaksiApi.saveStep1(pendaftaran.id, biodata);
+        appStore.saveStep1(pendaftaran.id, biodata);
+      } else if (currentStep === 2 && validateStep2()) {
+        await transaksiApi.saveStep2(pendaftaran.id, pendidikan);
+        appStore.saveStep2(pendaftaran.id, pendidikan);
+      } else if (currentStep === 3) {
+        await transaksiApi.saveStep3(pendaftaran.id, documents);
+        appStore.saveStep3(pendaftaran.id, documents);
+      }
+      toast.success("Draft pendaftaran berhasil disimpan ke sistem!");
+    } catch (err: any) {
+      toast.error(err.message || "Gagal menyimpan draft.");
     }
-    toast.success("Draft pendaftaran berhasil disimpan ke sistem!");
   };
 
-  const handleFileUpload = (persyaratanId: string, e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileUpload = async (persyaratanId: string, e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
@@ -202,43 +225,66 @@ export const WizardModal: React.FC<WizardModalProps> = ({
       return;
     }
 
-    const updated = documents.map((doc) => {
-      if (doc.persyaratanId === persyaratanId) {
-        return {
-          ...doc,
-          fileName: file.name,
-          fileSize: `${(file.size / 1024).toFixed(0)} KB`,
-          mimeType: file.type,
-          format: file.name.split(".").pop()?.toUpperCase() || "PDF",
-          isSesuai: true,
-          isRejected: false,
-          catatanRevisi: undefined,
-        };
-      }
-      return doc;
-    });
+    try {
+      const uploadRes = await dokumenApi.upload(
+        pendaftaran.id,
+        pendaftaran.kodePermohonan,
+        persyaratanId,
+        file
+      );
 
-    setDocuments(updated);
-    toast.success(`Berkas ${file.name} berhasil diunggah!`);
+      const updated = documents.map((doc) => {
+        if (doc.persyaratanId === persyaratanId) {
+          return {
+            ...doc,
+            id: uploadRes.dokumen?.id || doc.id,
+            fileName: file.name,
+            fileSize: `${(file.size / 1024).toFixed(0)} KB`,
+            mimeType: file.type,
+            format: file.name.split(".").pop()?.toUpperCase() || "PDF",
+            isSesuai: true,
+            isRejected: false,
+            catatanRevisi: undefined,
+          };
+        }
+        return doc;
+      });
+
+      setDocuments(updated);
+      appStore.saveStep3(pendaftaran.id, updated);
+      toast.success(`Berkas ${file.name} berhasil diunggah ke server!`);
+    } catch (err: any) {
+      toast.error(err.message || "Gagal mengunggah berkas ke server.");
+      e.target.value = "";
+    }
   };
 
-  const handleSubmitFinal = (e: React.FormEvent) => {
+  const handleSubmitFinal = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!pernyataanSah) {
       toast.error("Anda wajib mencentang pernyataan keabsahan data.");
       return;
     }
 
-    appStore.saveStep1(pendaftaran.id, biodata);
-    appStore.saveStep2(pendaftaran.id, pendidikan);
-    appStore.saveStep3(pendaftaran.id, documents);
-    appStore.submitApplication(pendaftaran.id);
+    try {
+      await transaksiApi.saveStep1(pendaftaran.id, biodata);
+      await transaksiApi.saveStep2(pendaftaran.id, pendidikan);
+      await transaksiApi.saveStep3(pendaftaran.id, documents);
+      await transaksiApi.submit(pendaftaran.id);
 
-    toast.success(
-      "Pendaftaran berhasil dikirim! Berkas Anda sekarang dalam proses verifikasi administrasi."
-    );
-    onSubmitted?.();
-    onClose();
+      appStore.saveStep1(pendaftaran.id, biodata);
+      appStore.saveStep2(pendaftaran.id, pendidikan);
+      appStore.saveStep3(pendaftaran.id, documents);
+      appStore.submitApplication(pendaftaran.id);
+
+      toast.success(
+        "Pendaftaran berhasil dikirim! Berkas Anda sekarang dalam proses verifikasi administrasi."
+      );
+      onSubmitted?.();
+      onClose();
+    } catch (err: any) {
+      toast.error(err.message || "Gagal mengirim formulir pendaftaran.");
+    }
   };
 
   return (

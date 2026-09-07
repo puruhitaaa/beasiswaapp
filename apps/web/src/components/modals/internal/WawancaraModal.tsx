@@ -1,18 +1,21 @@
 import React, { useState, useEffect } from "react";
 import { toast } from "sonner";
 import { appStore } from "@/lib/store";
+import { transaksiApi } from "@/lib/api";
 import type { PendaftaranRecord } from "@/types";
 
 interface WawancaraModalProps {
   isOpen: boolean;
   onClose: () => void;
   pendaftaran: PendaftaranRecord | null;
+  onSuccess?: () => void;
 }
 
 export const WawancaraModal: React.FC<WawancaraModalProps> = ({
   isOpen,
   onClose,
   pendaftaran,
+  onSuccess,
 }) => {
   const [skorKomunikasi, setSkorKomunikasi] = useState<number>(85);
   const [skorTeknis, setSkorTeknis] = useState<number>(88);
@@ -49,26 +52,40 @@ export const WawancaraModal: React.FC<WawancaraModalProps> = ({
     skorKomitmen * 0.3
   ).toFixed(2);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!catatanEvaluasi.trim()) {
       toast.error("Catatan evaluasi wajib diisi.");
       return;
     }
 
-    appStore.submitWawancaraScoring(
-      pendaftaran.id,
-      skorKomunikasi,
-      skorTeknis,
-      skorKomitmen,
-      statusWawancara,
-      catatanEvaluasi
-    );
+    try {
+      await transaksiApi.submitWawancaraScoring(pendaftaran.id, {
+        skorKomunikasi,
+        skorTeknis,
+        skorKomitmen,
+        nilaiWawancara: Number(nilaiAkhir),
+        statusHasil: statusWawancara,
+        catatanEvaluasi,
+      });
 
-    toast.success(
-      `Hasil wawancara berhasil disimpan! Nilai Akhir: ${nilaiAkhir} (${statusWawancara})`
-    );
-    onClose();
+      appStore.submitWawancaraScoring(
+        pendaftaran.id,
+        skorKomunikasi,
+        skorTeknis,
+        skorKomitmen,
+        statusWawancara,
+        catatanEvaluasi
+      );
+
+      toast.success(
+        `Hasil wawancara berhasil disimpan! Nilai Akhir: ${nilaiAkhir} (${statusWawancara})`
+      );
+      onSuccess?.();
+      onClose();
+    } catch (err: any) {
+      toast.error(err.message || "Gagal menyimpan hasil penilaian wawancara.");
+    }
   };
 
   return (

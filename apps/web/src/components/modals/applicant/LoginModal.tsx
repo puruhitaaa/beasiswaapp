@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { useNavigate } from "@tanstack/react-router";
 import { toast } from "sonner";
 import { appStore } from "@/lib/store";
+import { authApi } from "@/lib/api";
 
 interface LoginModalProps {
   isOpen: boolean;
@@ -20,23 +21,23 @@ export const LoginModal: React.FC<LoginModalProps> = ({
 
   if (!isOpen) return null;
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!identifier || !password) {
       toast.error("Harap isi email/username dan kata sandi.");
       return;
     }
 
-    appStore.setCurrentUser({
-      id: "user-yosep",
-      name: "Yosep Rohayadi",
-      email: identifier,
-      role: "applicant",
-    });
+    try {
+      const res = await authApi.login(identifier, "applicant", "Yosep Rohayadi");
+      appStore.setCurrentUser(res.user);
 
-    toast.success("Berhasil masuk ke Dashboard Calon Peserta!");
-    onClose();
-    navigate({ to: "/applicant" });
+      toast.success("Berhasil masuk ke Dashboard Calon Peserta!");
+      onClose();
+      navigate({ to: "/applicant" });
+    } catch (err: any) {
+      toast.error(err.message || "Gagal masuk. Periksa kembali akun Anda.");
+    }
   };
 
   return (

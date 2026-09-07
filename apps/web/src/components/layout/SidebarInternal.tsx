@@ -1,6 +1,7 @@
 import React from "react";
 import { Link, useNavigate } from "@tanstack/react-router";
 import { appStore } from "@/lib/store";
+import { authApi } from "@/lib/api";
 
 export type InternalRole = "verifikator" | "interviewer" | "admin";
 
@@ -18,6 +19,7 @@ export const SidebarInternal: React.FC<SidebarInternalProps> = ({
   const navigate = useNavigate();
 
   const handleLogout = () => {
+    authApi.logout();
     appStore.setCurrentUser(null);
     navigate({ to: "/login" });
   };

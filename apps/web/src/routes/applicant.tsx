@@ -1,4 +1,4 @@
-import React, { useState, useSyncExternalStore } from "react";
+import React, { useEffect, useState, useSyncExternalStore } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { toast } from "sonner";
 import NavbarApplicant from "@/components/layout/NavbarApplicant";
@@ -8,7 +8,8 @@ import WizardReadonlyModal from "@/components/modals/applicant/WizardReadonlyMod
 import DaftarUlangModal from "@/components/modals/applicant/DaftarUlangModal";
 import FilePreviewModal from "@/components/modals/applicant/FilePreviewModal";
 import { appStore } from "@/lib/store";
-import type { ApplicationStatus } from "@/types";
+import { authApi, masterApi, transaksiApi } from "@/lib/api";
+import type { ApplicationStatus, BeasiswaProgram, PendaftaranRecord } from "@/types";
 
 export const Route = createFileRoute("/applicant")({
   component: ApplicantPortalComponent,
@@ -21,8 +22,9 @@ function ApplicantPortalComponent() {
     () => appStore.getMyActiveApplication()
   );
 
-  const application = appStore.getMyActiveApplication();
-  const programs = appStore.getPrograms();
+  const storeApplication = appStore.getMyActiveApplication();
+  const [backendApp, setBackendApp] = useState<PendaftaranRecord | null>(null);
+  const [programs, setPrograms] = useState<BeasiswaProgram[]>(appStore.getPrograms());
   const currentUser = appStore.getCurrentUser();
 
   const [wizardOpen, setWizardOpen] = useState(false);
@@ -30,15 +32,97 @@ function ApplicantPortalComponent() {
   const [daftarUlangOpen, setDaftarUlangOpen] = useState(false);
   const [previewFile, setPreviewFile] = useState<string | null>(null);
 
-  // Fallback if no active application exists
+  const reloadBackendData = async () => {
+    try {
+      await authApi.ensureSession("applicant");
+      const [appRes, progsRes] = await Promise.all([
+        transaksiApi.getMyActive(),
+        masterApi.getBeasiswaList(),
+      ]);
+      if (Array.isArray(progsRes) && progsRes.length > 0) {
+        setPrograms(progsRes);
+      }
+      if (appRes && appRes.id) {
+        const mapped: PendaftaranRecord = {
+          id: appRes.id,
+          kodePermohonan: appRes.kodePermohonan,
+          userId: appRes.userId,
+          userName: appRes.biodata?.namaLengkap || currentUser?.name || "Yosep Rohayadi",
+          userNik: appRes.biodata?.nik || "3201123456780001",
+          beasiswaId: appRes.beasiswaId,
+          beasiswaNama: appRes.beasiswaNamaSnapshot || "Pelatihan Web Developer Specialist",
+          beasiswaMetode: "Daring",
+          status: appRes.status as ApplicationStatus,
+          stepWizardTerakhir: appRes.stepWizardTerakhir || 1,
+          submittedAt: appRes.submittedAt
+            ? new Date(appRes.submittedAt).toLocaleDateString("id-ID", {
+                day: "2-digit",
+                month: "short",
+                year: "numeric",
+              })
+            : undefined,
+          tipePengajuan: appRes.status === "REVISI" ? "Hasil Revisi" : "Baru Submit",
+          biodata: appRes.biodata,
+          pendidikan: appRes.pendidikan,
+          dokumen: appRes.dokumen && appRes.dokumen.length > 0 ? appRes.dokumen : [
+            {
+              persyaratanId: "req-ktp",
+              namaPersyaratan: "KTP (Kartu Tanda Penduduk)",
+              fileName: "",
+              fileSize: "",
+              mimeType: "image/jpeg",
+              format: "JPG",
+            },
+            {
+              persyaratanId: "req-kk",
+              namaPersyaratan: "KK (Kartu Keluarga)",
+              fileName: "",
+              fileSize: "",
+              mimeType: "application/pdf",
+              format: "PDF",
+            },
+            {
+              persyaratanId: "req-ijazah",
+              namaPersyaratan: "Ijazah Terakhir",
+              fileName: "",
+              fileSize: "",
+              mimeType: "application/pdf",
+              format: "PDF",
+            },
+            {
+              persyaratanId: "req-rekom",
+              namaPersyaratan: "Surat Rekomendasi / Keterangan",
+              fileName: "",
+              fileSize: "",
+              mimeType: "application/pdf",
+              format: "PDF",
+            },
+          ],
+          verifikasi: appRes.verifikasi,
+          wawancara: appRes.wawancara,
+          daftarUlang: appRes.daftarUlang,
+        };
+        setBackendApp(mapped);
+      }
+    } catch (err) {
+      console.error("Error loading backend applicant data:", err);
+    }
+  };
+
+  useEffect(() => {
+    reloadBackendData();
+  }, []);
+
+  // Active application precedence: backend > store > fallback
   const activeApp =
-    application || {
+    backendApp ||
+    storeApplication || {
       id: "prm-fallback",
       kodePermohonan: "REG-2026-090021",
       userId: currentUser?.id || "user-yosep",
       userName: currentUser?.name || "Yosep Rohayadi",
       userNik: "3201123456780001",
-      beasiswaId: "prog-1",
+      beasiswaId: "prog-web",
       beasiswaNama: "Pelatihan Web Developer Specialist",
       beasiswaMetode: "Daring",
       status: "DRAFT" as ApplicationStatus,
@@ -49,8 +133,24 @@ function ApplicantPortalComponent() {
 
   const currentStatus = activeApp.status;
 
+  const handleStartApplication = async () => {
+    if (!backendApp && (!storeApplication || storeApplication.id === "prm-fallback")) {
+      try {
+        const prog = programs[0] || { id: "prog-web", namaPelatihan: "Pelatihan Web Developer Specialist" };
+        await transaksiApi.initApplication(prog.id, prog.namaPelatihan);
+        await reloadBackendData();
+      } catch (err: any) {
+        console.error("Auto-init application failed:", err);
+      }
+    }
+    setWizardOpen(true);
+  };
+
   const handleStatusSwitch = (newStatus: ApplicationStatus) => {
     appStore.setApplicationStatus(activeApp.id, newStatus);
+    if (backendApp) {
+      setBackendApp({ ...backendApp, status: newStatus });
+    }
     toast.info(`Status permohonan beralih ke: ${newStatus}`);
   };
 
@@ -131,7 +231,7 @@ function ApplicantPortalComponent() {
                 <button
                   type="button"
                   className="btn btn-primary btn-lg px-4 fw-semibold"
-                  onClick={() => setWizardOpen(true)}
+                  onClick={handleStartApplication}
                 >
                   <i className="bi bi-pencil-square me-2"></i>Mulai Isi Formulir Pendaftaran
                 </button>
@@ -535,8 +635,9 @@ function ApplicantPortalComponent() {
         isOpen={wizardOpen}
         onClose={() => setWizardOpen(false)}
         pendaftaran={activeApp}
-        onSubmitted={() => {
+        onSubmitted={async () => {
           setWizardOpen(false);
+          await reloadBackendData();
           setReadonlyOpen(true);
         }}
       />
@@ -550,7 +651,10 @@ function ApplicantPortalComponent() {
 
       <DaftarUlangModal
         isOpen={daftarUlangOpen}
-        onClose={() => setDaftarUlangOpen(false)}
+        onClose={async () => {
+          setDaftarUlangOpen(false);
+          await reloadBackendData();
+        }}
         pendaftaranId={activeApp.id}
         programName={activeApp.beasiswaNama}
       />

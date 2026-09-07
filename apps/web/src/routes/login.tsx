@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { toast } from "sonner";
 import { appStore } from "@/lib/store";
+import { authApi } from "@/lib/api";
 
 export const Route = createFileRoute("/login")({
   component: InternalLoginComponent,
@@ -26,7 +27,7 @@ function InternalLoginComponent() {
     }
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!username || !password) {
       toast.error("Harap isi ID pengguna dan kata sandi.");
@@ -37,21 +38,21 @@ function InternalLoginComponent() {
     if (role === "interviewer") name = "Tim Penguji: Lembaga Seleksi A";
     if (role === "admin") name = "Admin: Yosep Rohayadi";
 
-    appStore.setCurrentUser({
-      id: `usr-${role}`,
-      name,
-      email: username,
-      role,
-    });
+    try {
+      const res = await authApi.login(username, role, name);
+      appStore.setCurrentUser(res.user);
 
-    toast.success(`Berhasil masuk sebagai ${role.toUpperCase()}!`);
+      toast.success(`Berhasil masuk sebagai ${role.toUpperCase()}!`);
 
-    if (role === "verifikator") {
-      navigate({ to: "/verifikator" });
-    } else if (role === "interviewer") {
-      navigate({ to: "/wawancara" });
-    } else {
-      navigate({ to: "/admin" });
+      if (role === "verifikator") {
+        navigate({ to: "/verifikator" });
+      } else if (role === "interviewer") {
+        navigate({ to: "/wawancara" });
+      } else {
+        navigate({ to: "/admin" });
+      }
+    } catch (err: any) {
+      toast.error(err.message || "Gagal masuk. Periksa kembali akun Anda.");
     }
   };
 

@@ -1,11 +1,11 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import NavbarPublic from "@/components/layout/NavbarPublic";
 import ProgramCard from "@/components/cards/ProgramCard";
 import LoginModal from "@/components/modals/applicant/LoginModal";
 import RegisterModal from "@/components/modals/applicant/RegisterModal";
 import ProgramDetailModal from "@/components/modals/applicant/ProgramDetailModal";
-import { appStore } from "@/lib/store";
+import { masterApi } from "@/lib/api";
 import type { BeasiswaProgram } from "@/types";
 
 export const Route = createFileRoute("/")({
@@ -16,8 +16,20 @@ function LandingPageComponent() {
   const [loginOpen, setLoginOpen] = useState(false);
   const [registerOpen, setRegisterOpen] = useState(false);
   const [selectedProgram, setSelectedProgram] = useState<BeasiswaProgram | null>(null);
+  const [programs, setPrograms] = useState<BeasiswaProgram[]>([]);
 
-  const programs = appStore.getPrograms();
+  useEffect(() => {
+    masterApi
+      .getBeasiswaList()
+      .then((data) => {
+        if (Array.isArray(data)) {
+          setPrograms(data);
+        }
+      })
+      .catch((err) => {
+        console.error("Failed to load programs from master service:", err);
+      });
+  }, []);
 
   const handleOpenDetail = (prog: BeasiswaProgram) => {
     setSelectedProgram(prog);

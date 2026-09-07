@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { appStore } from "@/lib/store";
+import { authApi, transaksiApi } from "@/lib/api";
 import { SidebarInternal } from "@/components/layout/SidebarInternal";
 import { PageHeaderInternal } from "@/components/layout/PageHeaderInternal";
 import { VerifikasiModal } from "@/components/modals/internal/VerifikasiModal";
@@ -21,12 +22,20 @@ function VerifikatorPageComponent() {
     fileName: "",
   });
 
-  // Reactive subscription to store
+  // Reactive subscription to store & backend
   const [pendaftarList, setPendaftarList] = useState<PendaftaranRecord[]>([]);
 
-  const reloadData = () => {
-    const all = appStore.getAllPendaftaran();
-    setPendaftarList(all);
+  const reloadData = async () => {
+    try {
+      await authApi.ensureSession("verifikator", "ahmad@beasiswa.go.id", "Ahmad Rivaldi");
+      const queue = await transaksiApi.getVerifikatorQueue();
+      if (Array.isArray(queue)) {
+        setPendaftarList(queue);
+      }
+    } catch (err) {
+      console.error("Failed to load verifikator queue:", err);
+      setPendaftarList(appStore.getAllPendaftaran());
+    }
   };
 
   useEffect(() => {
@@ -251,6 +260,7 @@ function VerifikatorPageComponent() {
           onClose={handleCloseVerif}
           pendaftaran={selectedPendaftaran}
           onPreviewFile={handlePreview}
+          onSuccess={reloadData}
         />
       )}
 

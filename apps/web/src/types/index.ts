@@ -46,6 +46,7 @@ export interface PendidikanData {
 }
 
 export interface DokumenUploadItem {
+  id?: string;
   persyaratanId: string;
   namaPersyaratan: string;
   fileName: string;

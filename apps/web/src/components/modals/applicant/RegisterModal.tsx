@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { useNavigate } from "@tanstack/react-router";
 import { toast } from "sonner";
 import { appStore } from "@/lib/store";
+import { authApi, transaksiApi } from "@/lib/api";
 
 interface RegisterModalProps {
   isOpen: boolean;
@@ -23,7 +24,7 @@ export const RegisterModal: React.FC<RegisterModalProps> = ({
 
   if (!isOpen) return null;
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
     // Validation
@@ -40,33 +41,26 @@ export const RegisterModal: React.FC<RegisterModalProps> = ({
       return;
     }
 
-    // Set user
-    const newUser = {
-      id: `user-${Date.now()}`,
-      name: namaLengkap,
-      email,
-      role: "applicant" as const,
-    };
-    appStore.setCurrentUser(newUser);
-
-    // If a target program was selected, auto-init a draft
-    const progId = targetProgramId || "prog-1";
-    const prog = appStore.getProgramById(progId);
     try {
-      appStore.initApplication(
-        progId,
-        prog?.namaPelatihan || "Pelatihan Web Developer Specialist",
-        prog?.metode
-      );
-    } catch {
-      // ignore if already active
-    }
+      const authRes = await authApi.login(email, "applicant", namaLengkap, `user-${nik}`);
+      appStore.setCurrentUser(authRes.user);
 
-    toast.success(
-      "Akun berhasil didaftarkan! Kredensial telah dikirimkan ke email Anda."
-    );
-    onClose();
-    navigate({ to: "/applicant" });
+      // If a target program was selected, auto-init a draft in the backend
+      const progId = targetProgramId || "prog-web";
+      try {
+        await transaksiApi.initApplication(progId);
+      } catch {
+        // ignore if application already initialized
+      }
+
+      toast.success(
+        "Akun berhasil didaftarkan! Kredensial telah dikirimkan ke email Anda."
+      );
+      onClose();
+      navigate({ to: "/applicant" });
+    } catch (err: any) {
+      toast.error(err.message || "Gagal mendaftarkan akun.");
+    }
   };
 
   return (

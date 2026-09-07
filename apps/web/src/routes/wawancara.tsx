@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { appStore } from "@/lib/store";
+import { authApi, transaksiApi } from "@/lib/api";
 import { SidebarInternal } from "@/components/layout/SidebarInternal";
 import { PageHeaderInternal } from "@/components/layout/PageHeaderInternal";
 import { WawancaraModal } from "@/components/modals/internal/WawancaraModal";
@@ -20,17 +21,25 @@ function WawancaraPageComponent() {
   // Reactive subscription
   const [candidates, setCandidates] = useState<PendaftaranRecord[]>([]);
 
-  const reloadData = () => {
-    // Only candidates who passed administration or are in wawancara stage
-    const all: PendaftaranRecord[] = appStore.getAllPendaftaran();
-    const eligible = all.filter(
-      (p) =>
-        p.status === "LOLOS_ADMIN" ||
-        p.status === "DALAM_PROSES_WAWANCARA" ||
-        p.status === "LULUS_DITERIMA" ||
-        p.status === "TIDAK_LULUS_WAWANCARA"
-    );
-    setCandidates(eligible.length > 0 ? eligible : all);
+  const reloadData = async () => {
+    try {
+      await authApi.ensureSession("interviewer", "interviewer@beasiswa.go.id", "Tim Penguji: Lembaga Seleksi A");
+      const queue = await transaksiApi.getWawancaraQueue();
+      if (Array.isArray(queue)) {
+        setCandidates(queue);
+      }
+    } catch (err) {
+      console.error("Failed to load wawancara queue:", err);
+      const all: PendaftaranRecord[] = appStore.getAllPendaftaran();
+      const eligible = all.filter(
+        (p) =>
+          p.status === "LOLOS_ADMIN" ||
+          p.status === "DALAM_PROSES_WAWANCARA" ||
+          p.status === "LULUS_DITERIMA" ||
+          p.status === "TIDAK_LULUS_WAWANCARA"
+      );
+      setCandidates(eligible.length > 0 ? eligible : all);
+    }
   };
 
   useEffect(() => {
@@ -274,6 +283,7 @@ function WawancaraPageComponent() {
           isOpen={isWawancaraOpen}
           onClose={handleCloseWawancara}
           pendaftaran={selectedCandidate}
+          onSuccess={reloadData}
         />
       )}
     </div>
