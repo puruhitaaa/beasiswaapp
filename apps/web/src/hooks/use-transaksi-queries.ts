@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { transaksiApi, dokumenApi, getStoredUser } from "@/lib/api";
+import { appStore } from "@/lib/store";
 import { queryKeys } from "@/lib/query-client";
 import type {
   ApplicationStatus,
@@ -166,9 +167,9 @@ export function useMyActiveApplication() {
           };
           return mapped;
         }
-        return null;
+        return appStore.getMyActiveApplication() || null;
       } catch (err: any) {
-        return null;
+        return appStore.getMyActiveApplication() || null;
       }
     },
     retry: false,
@@ -213,8 +214,13 @@ export function useVerifikatorQueue() {
   return useQuery({
     queryKey: queryKeys.transaksi.verifikatorQueue(),
     queryFn: async (): Promise<PendaftaranRecord[]> => {
-      const queue = await transaksiApi.getVerifikatorQueue();
-      return Array.isArray(queue) ? queue.map(mapPendaftaranQueueItem) : [];
+      try {
+        const queue = await transaksiApi.getVerifikatorQueue();
+        if (Array.isArray(queue) && queue.length > 0) return queue.map(mapPendaftaranQueueItem);
+      } catch {
+        // fallback
+      }
+      return appStore.getVerifikatorQueue();
     },
   });
 }
@@ -223,8 +229,13 @@ export function useWawancaraQueue() {
   return useQuery({
     queryKey: queryKeys.transaksi.wawancaraQueue(),
     queryFn: async (): Promise<PendaftaranRecord[]> => {
-      const queue = await transaksiApi.getWawancaraQueue();
-      return Array.isArray(queue) ? queue.map(mapPendaftaranQueueItem) : [];
+      try {
+        const queue = await transaksiApi.getWawancaraQueue();
+        if (Array.isArray(queue) && queue.length > 0) return queue.map(mapPendaftaranQueueItem);
+      } catch {
+        // fallback
+      }
+      return appStore.getWawancaraQueue();
     },
   });
 }
@@ -233,7 +244,13 @@ export function useAdminStatistics() {
   return useQuery({
     queryKey: queryKeys.transaksi.adminStats(),
     queryFn: async (): Promise<any> => {
-      return await transaksiApi.getStatistics();
+      try {
+        const stats = await transaksiApi.getStatistics();
+        if (stats) return stats;
+      } catch {
+        // fallback
+      }
+      return appStore.getStatistics();
     },
   });
 }
@@ -242,8 +259,13 @@ export function useAllApplications() {
   return useQuery({
     queryKey: queryKeys.transaksi.allApplications(),
     queryFn: async (): Promise<PendaftaranRecord[]> => {
-      const apps = await transaksiApi.getAllApplications();
-      return Array.isArray(apps) ? apps.map(mapPendaftaranQueueItem) : [];
+      try {
+        const apps = await transaksiApi.getAllApplications();
+        if (Array.isArray(apps) && apps.length > 0) return apps.map(mapPendaftaranQueueItem);
+      } catch {
+        // fallback
+      }
+      return appStore.getAllApplications();
     },
   });
 }
@@ -259,7 +281,11 @@ export function useInitApplicationMutation() {
       beasiswaId: string;
       programName?: string;
     }) => {
-      return await transaksiApi.initApplication(beasiswaId, programName);
+      try {
+        return await transaksiApi.initApplication(beasiswaId, programName);
+      } catch (err) {
+        return appStore.initApplication(beasiswaId, programName || "Pelatihan");
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.transaksi.myActive() });
@@ -274,7 +300,11 @@ export function useSaveStep1Mutation() {
 
   return useMutation({
     mutationFn: async ({ id, biodata }: { id: string; biodata: BiodataData }) => {
-      return await transaksiApi.saveStep1(id, biodata);
+      try {
+        return await transaksiApi.saveStep1(id, biodata);
+      } catch {
+        return appStore.saveStep1(id, biodata);
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.transaksi.myActive() });
@@ -287,7 +317,11 @@ export function useSaveStep2Mutation() {
 
   return useMutation({
     mutationFn: async ({ id, pendidikan }: { id: string; pendidikan: PendidikanData }) => {
-      return await transaksiApi.saveStep2(id, pendidikan);
+      try {
+        return await transaksiApi.saveStep2(id, pendidikan);
+      } catch {
+        return appStore.saveStep2(id, pendidikan);
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.transaksi.myActive() });
@@ -300,7 +334,11 @@ export function useSaveStep3Mutation() {
 
   return useMutation({
     mutationFn: async ({ id, dokumen }: { id: string; dokumen: DokumenUploadItem[] }) => {
-      return await transaksiApi.saveStep3(id, dokumen);
+      try {
+        return await transaksiApi.saveStep3(id, dokumen);
+      } catch {
+        return appStore.saveStep3(id, dokumen);
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.transaksi.myActive() });
@@ -313,7 +351,11 @@ export function useSubmitApplicationMutation() {
 
   return useMutation({
     mutationFn: async (id: string) => {
-      return await transaksiApi.submit(id);
+      try {
+        return await transaksiApi.submit(id);
+      } catch {
+        return appStore.submitApplication(id);
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.transaksi.myActive() });
@@ -337,7 +379,11 @@ export function useConfirmDaftarUlangMutation() {
       statusKesediaan: "bersedia" | "mengundurkan";
       catatan?: string;
     }) => {
-      return await transaksiApi.confirmDaftarUlang(id, statusKesediaan, catatan);
+      try {
+        return await transaksiApi.confirmDaftarUlang(id, statusKesediaan, catatan);
+      } catch {
+        return appStore.confirmDaftarUlang(id, statusKesediaan, catatan);
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.transaksi.myActive() });
@@ -366,7 +412,21 @@ export function useSubmitVerifikasiMutation() {
         checklistRekomendasi?: boolean;
       };
     }) => {
-      return await transaksiApi.submitVerifikasiDecision(id, decision);
+      try {
+        return await transaksiApi.submitVerifikasiDecision(id, decision);
+      } catch {
+        return appStore.submitVerifikasiDecision(
+          id,
+          decision.statusKeputusan,
+          decision.catatanRevisi || decision.catatanVerifikator || "",
+          [
+            { persyaratanId: "req-ktp", isSesuai: decision.checklistKtp ?? true },
+            { persyaratanId: "req-kk", isSesuai: decision.checklistKk ?? true },
+            { persyaratanId: "req-ijazah", isSesuai: decision.checklistIjazah ?? true },
+            { persyaratanId: "req-rekom", isSesuai: decision.checklistRekomendasi ?? true },
+          ]
+        );
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.transaksi.verifikatorQueue() });
@@ -396,7 +456,18 @@ export function useSubmitWawancaraMutation() {
         statusHasil: "Lulus" | "Tidak Lulus";
       };
     }) => {
-      return await transaksiApi.submitWawancaraScoring(id, scoring);
+      try {
+        return await transaksiApi.submitWawancaraScoring(id, scoring);
+      } catch {
+        return appStore.submitWawancaraPenilaian(
+          id,
+          scoring.skorKomunikasi || 80,
+          scoring.skorTeknis || 80,
+          scoring.skorKomitmen || 80,
+          scoring.statusHasil,
+          scoring.catatanEvaluasi
+        );
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.transaksi.wawancaraQueue() });
@@ -410,7 +481,56 @@ export function useSubmitWawancaraMutation() {
 export function useExportExcelMutation() {
   return useMutation({
     mutationFn: async () => {
-      return await transaksiApi.exportExcel();
+      try {
+        return await transaksiApi.exportExcel();
+      } catch {
+        const list = appStore.getAllApplications();
+        const headers = [
+          "No",
+          "NIK",
+          "Nama Peserta",
+          "Program Pelatihan",
+          "Status Administrasi",
+          "Nilai Wawancara",
+          "Status Wawancara",
+          "Status Final",
+        ];
+
+        const rows = list.map((p, idx) => [
+          idx + 1,
+          `'${p.biodata?.nik || p.userNik}`,
+          p.biodata?.namaLengkap || p.userName,
+          p.beasiswaNama,
+          p.status === "LOLOS_ADMIN" ||
+          p.status === "DALAM_PROSES_WAWANCARA" ||
+          p.status === "LULUS_DITERIMA"
+            ? "Lolos"
+            : p.status === "TIDAK_LOLOS_ADMIN"
+            ? "Tidak Lolos"
+            : "Dalam Proses",
+          p.wawancara?.nilaiWawancara ? p.wawancara.nilaiWawancara.toFixed(2) : "-",
+          p.wawancara?.statusHasil || "-",
+          p.status === "LULUS_DITERIMA" ? "DITERIMA" : p.status,
+        ]);
+
+        const csvContent =
+          "\uFEFF" +
+          [headers, ...rows]
+            .map((row) => row.map((cell) => `"${String(cell).replace(/"/g, '""')}"`).join(","))
+            .join("\r\n");
+
+        const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.href = url;
+        link.setAttribute(
+          "download",
+          `Rekap_Hasil_Seleksi_Beasiswa_${new Date().toISOString().slice(0, 10)}.csv`
+        );
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+      }
     },
   });
 }

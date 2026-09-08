@@ -151,7 +151,7 @@ export const WizardModal: React.FC<WizardModalProps> = ({
     if (isOpen) {
       setCurrentStep(isRevisionMode ? 3 : Math.min(Math.max(pendaftaran.stepWizardTerakhir || 1, 1), 4));
     }
-  }, [isOpen, isRevisionMode, pendaftaran.stepWizardTerakhir]);
+  }, [isOpen, isRevisionMode]);
 
   if (!isOpen) return null;
 

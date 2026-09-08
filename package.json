@@ -10,6 +10,10 @@
     "dev": "pnpm -r --parallel dev",
     "build": "pnpm -r --if-present build",
     "test": "vitest run",
+    "test:e2e": "playwright test",
+    "test:e2e:ui": "playwright test --ui",
+    "test:e2e:headed": "playwright test --headed",
+    "test:e2e:report": "playwright show-report",
     "check-types": "pnpm -r check-types",
     "dev:gateway": "pnpm --filter api-gateway dev",
     "dev:rbac": "pnpm --filter @beasiswaapp/service-rbac dev",
@@ -37,6 +41,7 @@
   },
   "devDependencies": {
     "@beasiswaapp/config": "workspace:*",
+    "@playwright/test": "^1.63.0",
     "@types/node": "catalog:",
     "file-type": "^21.3.4",
     "oxfmt": "latest",

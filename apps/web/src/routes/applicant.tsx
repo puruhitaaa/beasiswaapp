@@ -597,7 +597,7 @@ function ApplicantPortalComponent() {
       {/* Modals */}
       {wizardOpen && (
         <WizardModal
-          key={`${activeApp.id}-${activeApp.stepWizardTerakhir || 1}-${activeApp.biodata?.tempatLahir || ""}`}
+          key={activeApp.id}
           isOpen={wizardOpen}
           onClose={() => setWizardOpen(false)}
           pendaftaran={activeApp}

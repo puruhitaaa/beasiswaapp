@@ -42,9 +42,10 @@ await app.register(cors, {
   allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With"],
 });
 
-// 2. Rate Limiting: Maksimal 100 req/menit per IP
+// 2. Rate Limiting: Maksimal 100 req/menit per IP di production, dinamis di test/dev
+const RATE_LIMIT_MAX = Number(process.env.RATE_LIMIT_MAX) || (process.env.NODE_ENV === "production" ? 100 : 10000);
 await app.register(rateLimit, {
-  max: 100,
+  max: RATE_LIMIT_MAX,
   timeWindow: "1 minute",
   errorResponseBuilder: (_req, context) => ({
     statusCode: 429,

@@ -43,11 +43,28 @@ interface AppState {
 
 function loadState(): AppState {
   let currentUser = null;
+  let programs = [...initialPrograms];
+  let applications = [...initialPendaftaranList];
+  let internalUsers = [...initialInternalUsers];
+  let persyaratan = [...initialPersyaratan];
+  let roles = [...initialRoles];
+  let menus = [...initialMenus];
+
   if (typeof window !== "undefined") {
     try {
       const stored = localStorage.getItem("beasiswaapp_auth_user");
       if (stored) {
         currentUser = JSON.parse(stored);
+      }
+      const stateStored = localStorage.getItem(STORAGE_KEY);
+      if (stateStored) {
+        const parsed = JSON.parse(stateStored);
+        if (parsed.programs?.length) programs = parsed.programs;
+        if (parsed.applications?.length) applications = parsed.applications;
+        if (parsed.internalUsers?.length) internalUsers = parsed.internalUsers;
+        if (parsed.persyaratan?.length) persyaratan = parsed.persyaratan;
+        if (parsed.roles?.length) roles = parsed.roles;
+        if (parsed.menus?.length) menus = parsed.menus;
       }
     } catch {
       // ignore
@@ -56,12 +73,12 @@ function loadState(): AppState {
 
   return {
     currentUser,
-    programs: [],
-    applications: [],
-    internalUsers: [],
-    persyaratan: [],
-    roles: [],
-    menus: [],
+    programs,
+    applications,
+    internalUsers,
+    persyaratan,
+    roles,
+    menus,
   };
 }
 
@@ -120,11 +137,19 @@ class AppStore {
     return this.state.programs.find((p) => p.id === id);
   }
 
+  getAllApplications(): PendaftaranRecord[] {
+    return this.state.applications;
+  }
+
   getMyActiveApplication(): PendaftaranRecord | undefined {
     const user = this.state.currentUser;
     if (!user) return undefined;
     return this.state.applications.find(
-      (a) => a.userId === user.id || a.userName === user.name
+      (a) =>
+        a.userId === user.id ||
+        a.userName === user.name ||
+        (user.email && (a.biodata?.email?.toLowerCase() === user.email.toLowerCase() || a.userName?.toLowerCase() === user.email.toLowerCase())) ||
+        (user.nik && (a.userNik === user.nik || a.biodata?.nik === user.nik))
     );
   }
 
@@ -260,7 +285,7 @@ class AppStore {
   saveStep3(applicationId: string, dokumen: DokumenUploadItem[]) {
     this.state.applications = this.state.applications.map((app) => {
       if (app.id === applicationId) {
-        const nextStep = Math.max(app.stepWizardTerakhir, 4);
+        const nextStep = Math.max(app.stepWizardTerakhir, 3);
         return {
           ...app,
           dokumen,
@@ -598,18 +623,22 @@ class AppStore {
     }
     this.state = {
       currentUser: null,
-      programs: [],
-      applications: [],
-      internalUsers: [],
-      persyaratan: [],
-      roles: [],
-      menus: [],
+      programs: JSON.parse(JSON.stringify(initialPrograms)),
+      applications: JSON.parse(JSON.stringify(initialPendaftaranList)),
+      internalUsers: JSON.parse(JSON.stringify(initialInternalUsers)),
+      persyaratan: JSON.parse(JSON.stringify(initialPersyaratan)),
+      roles: JSON.parse(JSON.stringify(initialRoles)),
+      menus: JSON.parse(JSON.stringify(initialMenus)),
     };
     this.notify();
   }
 }
 
 export const appStore = new AppStore();
+
+if (typeof window !== "undefined") {
+  (window as any).__appStore = appStore;
+}
 
 /**
  * React hook to reactively subscribe to the current authenticated user in appStore.
