@@ -1,6 +1,7 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { toast } from "sonner";
 import { appStore } from "@/lib/store";
+import { useMenus, useUpdateRolePermissionsMutation } from "@/hooks/use-auth-queries";
 import type { MasterRole } from "@/types";
 
 interface RolePermissionModalProps {
@@ -14,10 +15,15 @@ export const RolePermissionModal: React.FC<RolePermissionModalProps> = ({
   onClose,
   role,
 }) => {
-  const menus = appStore.getMenus();
-  const [selectedMenus, setSelectedMenus] = useState<string[]>(
-    role?.accessibleMenus || []
-  );
+  const { data: menus = [] } = useMenus();
+  const updatePermissionsMutation = useUpdateRolePermissionsMutation();
+  const [selectedMenus, setSelectedMenus] = useState<string[]>([]);
+
+  useEffect(() => {
+    if (role) {
+      setSelectedMenus(role.accessibleMenus || []);
+    }
+  }, [role]);
 
   if (!isOpen || !role) return null;
 
@@ -29,10 +35,19 @@ export const RolePermissionModal: React.FC<RolePermissionModalProps> = ({
     }
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    toast.success(`Hak akses menu untuk role ${role.name} berhasil diperbarui!`);
-    onClose();
+    try {
+      await updatePermissionsMutation.mutateAsync({
+        roleId: role.id,
+        accessibleMenus: selectedMenus,
+      });
+      appStore.updateRole(role.id, selectedMenus);
+      toast.success(`Hak akses menu untuk role ${role.name} berhasil diperbarui!`);
+      onClose();
+    } catch (err: any) {
+      toast.error(err.message || "Gagal memperbarui hak akses role.");
+    }
   };
 
   return (

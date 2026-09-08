@@ -1,5 +1,6 @@
-import React, { useState } from "react";
-import { createFileRoute } from "@tanstack/react-router";
+import React, { useState, useEffect } from "react";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { toast } from "sonner";
 import { appStore } from "@/lib/store";
 import { useVerifikatorQueue } from "@/hooks/use-transaksi-queries";
 import { SidebarInternal } from "@/components/layout/SidebarInternal";
@@ -13,11 +14,25 @@ export const Route = createFileRoute("/verifikator")({
 });
 
 function VerifikatorPageComponent() {
-  const [currentUser] = useState(appStore.getCurrentUser());
+  const navigate = useNavigate();
+  const currentUser = appStore.getCurrentUser();
+
+  // Authentication & Role Route Guard
+  useEffect(() => {
+    if (!currentUser || (currentUser.role !== "verifikator" && currentUser.role !== "admin")) {
+      toast.error("Akses ditolak. Halaman ini hanya untuk Petugas Verifikator.");
+      navigate({ to: "/login" });
+    }
+  }, [currentUser, navigate]);
+
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedPendaftaran, setSelectedPendaftaran] = useState<PendaftaranRecord | null>(null);
   const [isVerifOpen, setIsVerifOpen] = useState(false);
-  const [previewFile, setPreviewFile] = useState<{ isOpen: boolean; fileName: string }>({
+  const [previewFile, setPreviewFile] = useState<{
+    isOpen: boolean;
+    fileName: string;
+    fileUrl?: string;
+  }>({
     isOpen: false,
     fileName: "",
   });
@@ -39,9 +54,9 @@ function VerifikatorPageComponent() {
       (p) =>
         p.status === "SUBMITTED" &&
         (!p.verifikasi || p.verifikasi.statusKeputusan === "pending")
-    ).length || 12;
+    ).length;
 
-  const countRevisi = pendaftarList.filter((p) => p.status === "REVISI").length || 5;
+  const countRevisi = pendaftarList.filter((p) => p.status === "REVISI").length;
 
   const countDisetujui =
     pendaftarList.filter(
@@ -49,12 +64,16 @@ function VerifikatorPageComponent() {
         p.status === "LOLOS_ADMIN" ||
         p.status === "DALAM_PROSES_WAWANCARA" ||
         p.status === "LULUS_DITERIMA"
-    ).length || 48;
+    ).length;
 
   const countDitolak =
     pendaftarList.filter(
       (p) => p.status === "TIDAK_LOLOS_ADMIN" || p.status === "TIDAK_LULUS_WAWANCARA"
-    ).length || 3;
+    ).length;
+
+  if (!currentUser || (currentUser.role !== "verifikator" && currentUser.role !== "admin")) {
+    return null;
+  }
 
   const handleOpenVerif = (p: PendaftaranRecord) => {
     setSelectedPendaftaran(p);
@@ -66,10 +85,11 @@ function VerifikatorPageComponent() {
     setSelectedPendaftaran(null);
   };
 
-  const handlePreview = (fileName: string) => {
+  const handlePreview = (fileName: string, fileUrl?: string) => {
     setPreviewFile({
       isOpen: true,
       fileName,
+      fileUrl,
     });
   };
 
@@ -244,8 +264,9 @@ function VerifikatorPageComponent() {
       {/* File Preview Modal */}
       <FilePreviewModal
         isOpen={previewFile.isOpen}
-        onClose={() => setPreviewFile({ isOpen: false, fileName: "" })}
+        onClose={() => setPreviewFile({ isOpen: false, fileName: "", fileUrl: undefined })}
         fileName={previewFile.fileName}
+        fileUrl={previewFile.fileUrl}
       />
     </div>
   );

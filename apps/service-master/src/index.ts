@@ -85,7 +85,7 @@ fastify.get("/internal/beasiswa/:id", async (request, reply) => {
 fastify.post("/api/master/beasiswa", async (request, reply) => {
   const userRole = request.headers["x-user-role"] as string;
   if (userRole !== "admin" && userRole !== "superadmin") {
-    return reply.status(403).send({ error: "Akses ditolak." });
+    return reply.status(403).send({ error: "Akses ditolak. Hak administrator diperlukan." });
   }
 
   const body = request.body as any;
@@ -106,7 +106,7 @@ fastify.post("/api/master/beasiswa", async (request, reply) => {
 fastify.delete("/api/master/beasiswa/:id", async (request, reply) => {
   const userRole = request.headers["x-user-role"] as string;
   if (userRole !== "admin" && userRole !== "superadmin") {
-    return reply.status(403).send({ error: "Akses ditolak." });
+    return reply.status(403).send({ error: "Akses ditolak. Hak administrator diperlukan." });
   }
 
   const { id } = request.params as { id: string };
@@ -117,6 +117,52 @@ fastify.delete("/api/master/beasiswa/:id", async (request, reply) => {
   }
 
   return { success: true, message: "Beasiswa berhasil dinonaktifkan." };
+});
+
+// 7. Persyaratan Management Endpoints
+fastify.get("/api/master/persyaratan", async () => {
+  return masterRepository.findAllPersyaratan();
+});
+
+fastify.post("/api/master/persyaratan", async (request, reply) => {
+  const userRole = request.headers["x-user-role"] as string;
+  if (userRole !== "admin" && userRole !== "superadmin") {
+    return reply.status(403).send({ error: "Akses ditolak. Hak administrator diperlukan." });
+  }
+
+  const body = request.body as any;
+  if (!body.namaPersyaratan) {
+    return reply.status(400).send({ error: "Nama persyaratan wajib diisi." });
+  }
+
+  try {
+    const created = await masterRepository.createPersyaratan({
+      beasiswaId: body.beasiswaId,
+      namaPersyaratan: body.namaPersyaratan,
+      tipeDokumen: body.formatAllowed || body.tipeDokumen || "PDF / JPG",
+      isMandatory: body.isMandatory ?? true,
+      maxFileSizeBytes: body.maxFileSizeBytes || 2097152,
+    });
+    return reply.status(201).send(created);
+  } catch (err: any) {
+    return reply.status(500).send({ error: err.message || "Gagal membuat persyaratan dokumen." });
+  }
+});
+
+fastify.delete("/api/master/persyaratan/:id", async (request, reply) => {
+  const userRole = request.headers["x-user-role"] as string;
+  if (userRole !== "admin" && userRole !== "superadmin") {
+    return reply.status(403).send({ error: "Akses ditolak. Hak administrator diperlukan." });
+  }
+
+  const { id } = request.params as { id: string };
+  const ok = await masterRepository.deletePersyaratan(id);
+
+  if (!ok) {
+    return reply.status(404).send({ error: "Persyaratan tidak ditemukan." });
+  }
+
+  return { success: true, message: "Persyaratan dokumen berhasil dihapus." };
 });
 
 const PORT = Number(process.env.PORT) || 3012;

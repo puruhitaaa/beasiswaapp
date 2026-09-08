@@ -5,7 +5,7 @@ interface WizardReadonlyModalProps {
   isOpen: boolean;
   onClose: () => void;
   pendaftaran: PendaftaranRecord;
-  onPreviewFile?: (fileName: string) => void;
+  onPreviewFile?: (fileName: string, fileUrl?: string) => void;
 }
 
 export const WizardReadonlyModal: React.FC<WizardReadonlyModalProps> = ({
@@ -277,7 +277,12 @@ export const WizardReadonlyModal: React.FC<WizardReadonlyModalProps> = ({
                             <button
                               type="button"
                               className="btn btn-outline-secondary"
-                              onClick={() => onPreviewFile?.(doc.fileName || doc.namaPersyaratan)}
+                              onClick={() =>
+                                onPreviewFile?.(
+                                  doc.fileName || doc.namaPersyaratan,
+                                  doc.fileUrl || (doc.id ? `/api/dokumen/${doc.id}/view` : undefined)
+                                )
+                              }
                             >
                               <i className="bi bi-eye"></i> Lihat File
                             </button>

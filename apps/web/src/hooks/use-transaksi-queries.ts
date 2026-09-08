@@ -1,6 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { authApi, transaksiApi } from "@/lib/api";
-import { appStore } from "@/lib/store";
+import { transaksiApi } from "@/lib/api";
 import { queryKeys } from "@/lib/query-client";
 import type {
   ApplicationStatus,
@@ -15,15 +14,13 @@ export function useMyActiveApplication() {
     queryKey: queryKeys.transaksi.myActive(),
     queryFn: async (): Promise<PendaftaranRecord | null> => {
       try {
-        await authApi.ensureSession("applicant");
         const appRes = await transaksiApi.getMyActive();
         if (appRes && appRes.id) {
-          const currentUser = appStore.getCurrentUser();
           const mapped: PendaftaranRecord = {
             id: appRes.id,
             kodePermohonan: appRes.kodePermohonan,
             userId: appRes.userId,
-            userName: appRes.biodata?.namaLengkap || currentUser?.name || "-",
+            userName: appRes.biodata?.namaLengkap || "-",
             userNik: appRes.biodata?.nik || "-",
             beasiswaId: appRes.beasiswaId,
             beasiswaNama: appRes.beasiswaNamaSnapshot || "-",
@@ -83,12 +80,12 @@ export function useMyActiveApplication() {
           };
           return mapped;
         }
-        return appStore.getMyActiveApplication() ?? null;
-      } catch (err) {
-        console.warn("Failed to fetch my-active from API, falling back to local store:", err);
-        return appStore.getMyActiveApplication() ?? null;
+        return null;
+      } catch (err: any) {
+        return null;
       }
     },
+    retry: false,
   });
 }
 
@@ -97,13 +94,7 @@ export function useApplicationDetail(id: string) {
     queryKey: queryKeys.transaksi.detail(id),
     queryFn: async (): Promise<PendaftaranRecord | null> => {
       if (!id) return null;
-      try {
-        const data = await transaksiApi.getById(id);
-        return data ?? null;
-      } catch (err) {
-        console.warn(`Failed to fetch application ${id} from API:`, err);
-        return appStore.getAllPendaftaran().find((p) => p.id === id) ?? null;
-      }
+      return (await transaksiApi.getById(id)) ?? null;
     },
     enabled: Boolean(id),
   });
@@ -113,17 +104,8 @@ export function useVerifikatorQueue() {
   return useQuery({
     queryKey: queryKeys.transaksi.verifikatorQueue(),
     queryFn: async (): Promise<PendaftaranRecord[]> => {
-      try {
-        await authApi.ensureSession("verifikator", "ahmad@beasiswa.go.id", "Ahmad Rivaldi");
-        const queue = await transaksiApi.getVerifikatorQueue();
-        if (Array.isArray(queue) && queue.length > 0) {
-          return queue;
-        }
-        return appStore.getAllPendaftaran();
-      } catch (err) {
-        console.warn("Failed to fetch verifikator queue from API, falling back to local store:", err);
-        return appStore.getAllPendaftaran();
-      }
+      const queue = await transaksiApi.getVerifikatorQueue();
+      return Array.isArray(queue) ? queue : [];
     },
   });
 }
@@ -132,33 +114,8 @@ export function useWawancaraQueue() {
   return useQuery({
     queryKey: queryKeys.transaksi.wawancaraQueue(),
     queryFn: async (): Promise<PendaftaranRecord[]> => {
-      try {
-        await authApi.ensureSession("interviewer", "interviewer@beasiswa.go.id", "Tim Penguji: Lembaga Seleksi A");
-        const queue = await transaksiApi.getWawancaraQueue();
-        if (Array.isArray(queue) && queue.length > 0) {
-          return queue;
-        }
-        const all = appStore.getAllPendaftaran();
-        const eligible = all.filter(
-          (p) =>
-            p.status === "LOLOS_ADMIN" ||
-            p.status === "DALAM_PROSES_WAWANCARA" ||
-            p.status === "LULUS_DITERIMA" ||
-            p.status === "TIDAK_LULUS_WAWANCARA"
-        );
-        return eligible.length > 0 ? eligible : all;
-      } catch (err) {
-        console.warn("Failed to fetch wawancara queue from API, falling back to local store:", err);
-        const all = appStore.getAllPendaftaran();
-        const eligible = all.filter(
-          (p) =>
-            p.status === "LOLOS_ADMIN" ||
-            p.status === "DALAM_PROSES_WAWANCARA" ||
-            p.status === "LULUS_DITERIMA" ||
-            p.status === "TIDAK_LULUS_WAWANCARA"
-        );
-        return eligible.length > 0 ? eligible : all;
-      }
+      const queue = await transaksiApi.getWawancaraQueue();
+      return Array.isArray(queue) ? queue : [];
     },
   });
 }
@@ -167,13 +124,7 @@ export function useAdminStatistics() {
   return useQuery({
     queryKey: queryKeys.transaksi.adminStats(),
     queryFn: async (): Promise<any> => {
-      try {
-        await authApi.ensureSession("admin", "admin@beasiswa.go.id", "Admin: Yosep Rohayadi");
-        return await transaksiApi.getStatistics();
-      } catch (err) {
-        console.warn("Failed to fetch admin statistics from API:", err);
-        return null;
-      }
+      return await transaksiApi.getStatistics();
     },
   });
 }
@@ -182,17 +133,8 @@ export function useAllApplications() {
   return useQuery({
     queryKey: queryKeys.transaksi.allApplications(),
     queryFn: async (): Promise<PendaftaranRecord[]> => {
-      try {
-        await authApi.ensureSession("admin", "admin@beasiswa.go.id", "Admin: Yosep Rohayadi");
-        const apps = await transaksiApi.getAllApplications();
-        if (Array.isArray(apps) && apps.length > 0) {
-          return apps;
-        }
-        return appStore.getAllPendaftaran();
-      } catch (err) {
-        console.warn("Failed to fetch all applications from API, falling back to local store:", err);
-        return appStore.getAllPendaftaran();
-      }
+      const apps = await transaksiApi.getAllApplications();
+      return Array.isArray(apps) ? apps : [];
     },
   });
 }
@@ -223,9 +165,7 @@ export function useSaveStep1Mutation() {
 
   return useMutation({
     mutationFn: async ({ id, biodata }: { id: string; biodata: BiodataData }) => {
-      const res = await transaksiApi.saveStep1(id, biodata);
-      appStore.saveStep1(id, biodata);
-      return res;
+      return await transaksiApi.saveStep1(id, biodata);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.transaksi.myActive() });
@@ -238,9 +178,7 @@ export function useSaveStep2Mutation() {
 
   return useMutation({
     mutationFn: async ({ id, pendidikan }: { id: string; pendidikan: PendidikanData }) => {
-      const res = await transaksiApi.saveStep2(id, pendidikan);
-      appStore.saveStep2(id, pendidikan);
-      return res;
+      return await transaksiApi.saveStep2(id, pendidikan);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.transaksi.myActive() });
@@ -253,9 +191,7 @@ export function useSaveStep3Mutation() {
 
   return useMutation({
     mutationFn: async ({ id, dokumen }: { id: string; dokumen: DokumenUploadItem[] }) => {
-      const res = await transaksiApi.saveStep3(id, dokumen);
-      appStore.saveStep3(id, dokumen);
-      return res;
+      return await transaksiApi.saveStep3(id, dokumen);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.transaksi.myActive() });
@@ -268,9 +204,7 @@ export function useSubmitApplicationMutation() {
 
   return useMutation({
     mutationFn: async (id: string) => {
-      const res = await transaksiApi.submit(id);
-      appStore.submitApplication(id);
-      return res;
+      return await transaksiApi.submit(id);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.transaksi.myActive() });
@@ -294,9 +228,7 @@ export function useConfirmDaftarUlangMutation() {
       statusKesediaan: "bersedia" | "mengundurkan";
       catatan?: string;
     }) => {
-      const res = await transaksiApi.confirmDaftarUlang(id, statusKesediaan, catatan);
-      appStore.confirmDaftarUlang(id, statusKesediaan, catatan);
-      return res;
+      return await transaksiApi.confirmDaftarUlang(id, statusKesediaan, catatan);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.transaksi.myActive() });
@@ -325,8 +257,7 @@ export function useSubmitVerifikasiMutation() {
         checklistRekomendasi?: boolean;
       };
     }) => {
-      const res = await transaksiApi.submitVerifikasiDecision(id, decision);
-      return res;
+      return await transaksiApi.submitVerifikasiDecision(id, decision);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.transaksi.verifikatorQueue() });
@@ -356,8 +287,7 @@ export function useSubmitWawancaraMutation() {
         statusHasil: "Lulus" | "Tidak Lulus";
       };
     }) => {
-      const res = await transaksiApi.submitWawancaraScoring(id, scoring);
-      return res;
+      return await transaksiApi.submitWawancaraScoring(id, scoring);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.transaksi.wawancaraQueue() });

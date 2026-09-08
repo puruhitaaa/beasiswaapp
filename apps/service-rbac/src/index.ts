@@ -1,6 +1,8 @@
 import "dotenv/config";
 import fastifyCors from "@fastify/cors";
+import { verifyPassword } from "better-auth/crypto";
 import Fastify, { type FastifyReply, type FastifyRequest } from "fastify";
+import { SignJWT } from "jose";
 import { auth } from "./auth.js";
 import { rbacRepository } from "./repository.js";
 
@@ -34,62 +36,161 @@ fastify.get("/health", async () => {
   };
 });
 
-import { SignJWT } from "jose";
-
 const JWT_SECRET = new TextEncoder().encode(
   process.env.BETTER_AUTH_SECRET || "default-secret-key-min-32-chars-fallback"
 );
 
-// 2. Token generation endpoint for seamless API client auth
-fastify.post("/api/auth/token", async (request) => {
-  const body = (request.body || {}) as any;
-  const email = body.email || "user@example.com";
-  const role = body.role || "applicant";
-  const userId =
-    body.userId ||
-    (email === "yosep@example.com"
-      ? "user-yosep"
-      : role === "verifikator" || email.includes("ahmad")
-      ? "v-1"
-      : role === "interviewer" || email.includes("interviewer")
-      ? "i-1"
-      : role === "admin" || email.includes("admin")
-      ? "adm-1"
-      : `user-${email.replace(/[^a-zA-Z0-9]/g, "_")}`);
-  const name =
-    body.name ||
-    (userId === "v-1"
-      ? "Ahmad Rivaldi"
-      : userId === "i-1"
-      ? "Lembaga Seleksi A"
-      : userId === "adm-1"
-      ? "Admin Yosep"
-      : email.split("@")[0]);
-
-  const token = await new SignJWT({
-    userId,
-    sub: userId,
-    role,
-    email,
-    name,
+// Helper to create JWT token
+async function generateToken(user: { id: string; email: string; name: string; role: string }) {
+  return new SignJWT({
+    userId: user.id,
+    sub: user.id,
+    role: user.role,
+    email: user.email,
+    name: user.name,
   })
     .setProtectedHeader({ alg: "HS256" })
     .setIssuedAt()
     .setExpirationTime("7d")
     .sign(JWT_SECRET);
+}
 
-  return {
-    token,
-    user: {
+// 2. Register Endpoint (Public)
+fastify.post("/api/auth/register", async (request, reply) => {
+  const body = (request.body || {}) as any;
+  const { nik, name, email, password } = body;
+
+  if (!email || !password || !name) {
+    return reply.status(400).send({ error: "Nama, email, dan kata sandi wajib diisi." });
+  }
+
+  if (password.length < 6) {
+    return reply.status(400).send({ error: "Kata sandi minimal 6 karakter." });
+  }
+
+  const existing = await rbacRepository.findUserWithAuthByEmail(email);
+  if (existing) {
+    return reply.status(400).send({ error: "Alamat email sudah terdaftar. Silakan masuk." });
+  }
+
+  try {
+    const userId = nik ? `user-${nik}` : undefined;
+    const user = await rbacRepository.createUserWithAccount({
       id: userId,
-      email,
       name,
-      role,
-    },
-  };
+      email,
+      passwordRaw: password,
+      roleName: "applicant",
+    });
+
+    const token = await generateToken(user);
+    return reply.status(201).send({ token, user });
+  } catch (err: any) {
+    fastify.log.error({ err }, "Registration error:");
+    return reply.status(500).send({ error: err.message || "Gagal mendaftarkan akun." });
+  }
 });
 
-// 3. Better-Auth Handler
+// 3. Login Endpoint (Public)
+fastify.post("/api/auth/login", async (request, reply) => {
+  const body = (request.body || {}) as any;
+  const { email, password, role } = body;
+
+  if (!email || !password) {
+    return reply.status(400).send({ error: "Email/ID Pengguna dan kata sandi wajib diisi." });
+  }
+
+  try {
+    const user = await rbacRepository.findUserWithAuthByEmail(email);
+    if (!user) {
+      return reply.status(401).send({ error: "Akun tidak ditemukan. Periksa kembali email Anda." });
+    }
+
+    const credentialAccount = user.accounts.find((a) => a.providerId === "credential" || a.password);
+    if (!credentialAccount || !credentialAccount.password) {
+      return reply.status(401).send({ error: "Metode autentikasi tidak sah untuk akun ini." });
+    }
+
+    const isValid = await verifyPassword({
+      hash: credentialAccount.password,
+      password,
+    });
+
+    if (!isValid) {
+      return reply.status(401).send({ error: "Kata sandi salah. Silakan coba lagi." });
+    }
+
+    const userRole = user.role?.name || "applicant";
+
+    // Enforce role check if specific portal login
+    if (role && role !== userRole && userRole !== "superadmin") {
+      return reply.status(403).send({
+        error: `Akun ini tidak memiliki hak akses sebagai ${role.toUpperCase()}.`,
+      });
+    }
+
+    const tokenUser = {
+      id: user.id,
+      email: user.email,
+      name: user.name,
+      role: userRole,
+    };
+
+    const token = await generateToken(tokenUser);
+    return { token, user: tokenUser };
+  } catch (err: any) {
+    fastify.log.error({ err }, "Login error:");
+    return reply.status(500).send({ error: "Terjadi kesalahan saat memverifikasi autentikasi." });
+  }
+});
+
+// 4. Token generation endpoint (Backward compatibility & token refresh)
+fastify.post("/api/auth/token", async (request, reply) => {
+  const body = (request.body || {}) as any;
+  const email = body.email;
+  const password = body.password;
+
+  // If password provided, do real authentication
+  if (password && email) {
+    const user = await rbacRepository.findUserWithAuthByEmail(email);
+    if (user) {
+      const cred = user.accounts.find((a) => a.providerId === "credential" || a.password);
+      if (cred?.password) {
+        const ok = await verifyPassword({ hash: cred.password, password });
+        if (!ok) {
+          return reply.status(401).send({ error: "Kata sandi salah." });
+        }
+      }
+      const tokenUser = {
+        id: user.id,
+        email: user.email,
+        name: user.name,
+        role: user.role?.name || "applicant",
+      };
+      const token = await generateToken(tokenUser);
+      return { token, user: tokenUser };
+    }
+  }
+
+  // Fallback lookup by email from database
+  if (email) {
+    const user = await rbacRepository.findUserWithAuthByEmail(email);
+    if (user) {
+      const tokenUser = {
+        id: user.id,
+        email: user.email,
+        name: user.name,
+        role: user.role?.name || body.role || "applicant",
+      };
+      const token = await generateToken(tokenUser);
+      return { token, user: tokenUser };
+    }
+  }
+
+  return reply.status(401).send({ error: "Kredensial atau akun tidak ditemukan di database." });
+});
+
+// 5. Better-Auth Handler (Passthrough)
 fastify.route({
   method: ["GET", "POST"],
   url: "/api/auth/*",
@@ -119,7 +220,7 @@ fastify.route({
   },
 });
 
-// 3. Current User Profile & Role Check
+// 6. Current User Profile
 fastify.get("/api/rbac/me", async (request, reply) => {
   const userId = request.headers["x-user-id"] as string | undefined;
   if (!userId) {
@@ -135,50 +236,83 @@ fastify.get("/api/rbac/me", async (request, reply) => {
   return user;
 });
 
-// 4. Dynamic Menu Retrieval by User Role
+// 7. Dynamic Menu Retrieval by User Role
 fastify.get("/api/rbac/me/menus", async (request) => {
   const userRole = (request.headers["x-user-role"] as string) || "applicant";
   return rbacRepository.getMenusByRole(userRole);
 });
 
-// 5. User Management (Admin Only)
+// 8. User Management (Admin Only)
 fastify.get("/api/rbac/users", async (request, reply) => {
   const userRole = request.headers["x-user-role"] as string;
   if (userRole !== "admin" && userRole !== "superadmin") {
-    return reply.status(403).send({ error: "Akses ditolak." });
+    return reply.status(403).send({ error: "Akses ditolak. Hak administrator diperlukan." });
   }
 
   return rbacRepository.getAllUsers();
 });
 
-// 6. Roles & Permissions List
+fastify.post("/api/rbac/users", async (request, reply) => {
+  const userRole = request.headers["x-user-role"] as string;
+  if (userRole !== "admin" && userRole !== "superadmin") {
+    return reply.status(403).send({ error: "Akses ditolak. Hak administrator diperlukan." });
+  }
+
+  const body = (request.body || {}) as any;
+  const { name, email, password, role } = body;
+
+  if (!name || !email) {
+    return reply.status(400).send({ error: "Nama dan email wajib diisi." });
+  }
+
+  const existing = await rbacRepository.findUserWithAuthByEmail(email);
+  if (existing) {
+    return reply.status(400).send({ error: "Email sudah terdaftar." });
+  }
+
+  try {
+    const created = await rbacRepository.createUserWithAccount({
+      name,
+      email,
+      passwordRaw: password || "Petugas123!",
+      roleName: role || "verifikator",
+    });
+
+    return reply.status(201).send(created);
+  } catch (err: any) {
+    return reply.status(500).send({ error: err.message || "Gagal membuat akun petugas." });
+  }
+});
+
+// 9. Roles & Permissions List
 fastify.get("/api/rbac/roles", async () => {
-  return [
-    {
-      id: "role-1",
-      name: "applicant",
-      description: "Peserta Calon Penerima Beasiswa",
-      accessibleMenus: ["Dashboard Beasiswa"],
-    },
-    {
-      id: "role-2",
-      name: "verifikator",
-      description: "Verifikator Seleksi Administrasi",
-      accessibleMenus: ["Verifikasi Seleksi Administrasi"],
-    },
-    {
-      id: "role-3",
-      name: "interviewer",
-      description: "Lembaga / Tim Penguji Wawancara",
-      accessibleMenus: ["Proses Wawancara"],
-    },
-    {
-      id: "role-4",
-      name: "admin",
-      description: "Administrator Sistem Beasiswa",
-      accessibleMenus: ["Dashboard", "Hasil Seleksi", "Data Master", "Setting System"],
-    },
-  ];
+  return rbacRepository.getAllRoles();
+});
+
+fastify.get("/api/rbac/menus", async () => {
+  return rbacRepository.getAllMenus();
+});
+
+fastify.put("/api/rbac/roles/:id/permissions", async (request, reply) => {
+  const userRole = request.headers["x-user-role"] as string;
+  if (userRole !== "admin" && userRole !== "superadmin") {
+    return reply.status(403).send({ error: "Akses ditolak. Hak administrator diperlukan." });
+  }
+
+  const { id } = request.params as { id: string };
+  const body = (request.body || {}) as any;
+  const { accessibleMenus } = body;
+
+  if (!Array.isArray(accessibleMenus)) {
+    return reply.status(400).send({ error: "accessibleMenus harus berupa array nama menu." });
+  }
+
+  try {
+    await rbacRepository.updateRolePermissions(id, accessibleMenus);
+    return { success: true, message: "Hak akses role berhasil diperbarui." };
+  } catch (err: any) {
+    return reply.status(500).send({ error: err.message || "Gagal memperbarui hak akses role." });
+  }
 });
 
 const PORT = Number(process.env.PORT) || 3011;

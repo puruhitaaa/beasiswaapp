@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { toast } from "sonner";
-import { appStore } from "@/lib/store";
+import { useCreatePersyaratanMutation } from "@/hooks/use-master-queries";
 
 interface PersyaratanModalProps {
   isOpen: boolean;
@@ -12,10 +12,11 @@ export const PersyaratanModal: React.FC<PersyaratanModalProps> = ({ isOpen, onCl
   const [formatAllowed, setFormatAllowed] = useState("");
   const [maxSize, setMaxSize] = useState("");
   const [isMandatory, setIsMandatory] = useState(true);
+  const createMutation = useCreatePersyaratanMutation();
 
   if (!isOpen) return null;
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!namaPersyaratan.trim()) {
       toast.error("Nama persyaratan wajib diisi.");
@@ -30,15 +31,22 @@ export const PersyaratanModal: React.FC<PersyaratanModalProps> = ({ isOpen, onCl
       return;
     }
 
-    appStore.addPersyaratan({
-      namaPersyaratan,
-      formatAllowed,
-      maxSize,
-      isMandatory,
-    });
+    try {
+      await createMutation.mutateAsync({
+        namaPersyaratan,
+        formatAllowed,
+        maxSize,
+        isMandatory,
+      });
 
-    toast.success("Persyaratan dokumen berhasil ditambahkan!");
-    onClose();
+      toast.success("Persyaratan dokumen berhasil ditambahkan!");
+      setNamaPersyaratan("");
+      setFormatAllowed("");
+      setMaxSize("");
+      onClose();
+    } catch (err: any) {
+      toast.error(err.message || "Gagal menambahkan persyaratan dokumen.");
+    }
   };
 
   return (

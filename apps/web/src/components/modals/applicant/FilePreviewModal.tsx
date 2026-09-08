@@ -38,8 +38,38 @@ export const FilePreviewModal: React.FC<FilePreviewModalProps> = ({
                 onClick={onClose}
               ></button>
             </div>
-            <div className="modal-body text-center p-4 bg-light" style={{ minHeight: "350px" }}>
-              {isPdf ? (
+            <div className="modal-body text-center p-3 bg-light" style={{ minHeight: "350px" }}>
+              {fileUrl ? (
+                <div>
+                  {isPdf ? (
+                    <iframe
+                      src={fileUrl}
+                      title={`Pratinjau ${fileName}`}
+                      className="w-100 border rounded"
+                      style={{ height: "550px", backgroundColor: "#fff" }}
+                    />
+                  ) : (
+                    <div className="p-2">
+                      <img
+                        src={fileUrl}
+                        alt={fileName}
+                        className="img-fluid rounded shadow-sm border"
+                        style={{ maxHeight: "550px", objectFit: "contain" }}
+                      />
+                    </div>
+                  )}
+                  <div className="mt-3">
+                    <a
+                      href={fileUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="btn btn-sm btn-outline-primary"
+                    >
+                      <i className="bi bi-box-arrow-up-right me-1"></i>Buka Dokumen di Tab Baru
+                    </a>
+                  </div>
+                </div>
+              ) : isPdf ? (
                 <div className="border rounded bg-white p-5 shadow-sm">
                   <i className="bi bi-file-earmark-pdf text-danger display-1 mb-3"></i>
                   <h5>{fileName}</h5>

@@ -316,7 +316,7 @@ const handleVerifikatorDecision = async (request: any, reply: any) => {
 
   return {
     success: true,
-    message: `Keputusan verifikasi berhasil disimpan. Status permohonan sekarang: ${updated.status}.`,
+    message: `Keputusan verifikasi berhasil disimpan. Status permohonan sekarang: ${updated?.status || "DIPROSES"}.`,
     data: updated,
   };
 };

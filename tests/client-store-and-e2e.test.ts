@@ -1,8 +1,8 @@
-import { describe, it, expect, beforeEach } from "vitest";
+import { describe, it, expect, beforeAll } from "vitest";
 import { appStore } from "../apps/web/src/lib/store";
 
 describe("Frontend Client Store & E2E Role Flow Simulation", () => {
-  beforeEach(() => {
+  beforeAll(() => {
     appStore.resetToDefaults();
   });
 
@@ -72,33 +72,33 @@ describe("Frontend Client Store & E2E Role Flow Simulation", () => {
     expect(submitted?.status).toBe("SUBMITTED");
   });
 
-  it("Verifikator Flow: Review documents and issue revision", () => {
+  it("Verifikator Flow: Review documents and approve for interview", () => {
     const queue = appStore.getVerifikatorQueue();
     expect(queue.length).toBeGreaterThan(0);
 
     const target = queue[0];
     appStore.submitVerifikasiDecision(
       target.id,
-      "revisi",
-      "Ijazah tidak terbaca jelas.",
+      "disetujui",
+      "Seluruh berkas persyaratan lengkap dan sesuai kriteria.",
       [
         {
-          persyaratanId: "req-ijazah",
-          isSesuai: false,
-          catatanPerbaikan: "Scan buram",
+          persyaratanId: "req-ktp",
+          isSesuai: true,
         },
       ]
     );
 
     const updated = appStore.getAllApplications().find((a) => a.id === target.id);
-    expect(updated?.status).toBe("REVISI");
-    expect(updated?.verifikasi?.catatanVerifikator).toContain("Ijazah tidak terbaca");
+    expect(updated?.status).toBe("LOLOS_ADMIN");
+    expect(updated?.verifikasi?.statusKeputusan).toBe("disetujui");
   });
 
   it("Interviewer Flow: Score candidate with weighted formula and grant graduation", () => {
-    // Pick an application in queue
-    const all = appStore.getAllApplications();
-    const candidate = all[0];
+    // Pick candidate from interview queue
+    const queue = appStore.getWawancaraQueue();
+    expect(queue.length).toBeGreaterThan(0);
+    const candidate = queue[0];
 
     appStore.submitWawancaraScoring(
       candidate.id,
@@ -124,11 +124,10 @@ describe("Frontend Client Store & E2E Role Flow Simulation", () => {
     expect(updated?.daftarUlang?.catatan).toBe("Akan mengikuti tepat waktu.");
   });
 
-  it("Admin Statistics calculation matches mockup figures", () => {
+  it("Admin Statistics calculation reflects actual database counts without artificial offsets", () => {
     const stats = appStore.getAdminStatistics();
-    expect(stats.totalPeserta).toBeGreaterThanOrEqual(100);
-    expect(stats.prosesAdministrasi).toBeGreaterThan(0);
-    expect(stats.lolosAdministrasi).toBeGreaterThan(0);
-    expect(stats.lulusWawancara).toBeGreaterThan(0);
+    expect(stats.totalPeserta).toBe(1);
+    expect(stats.lulusWawancara).toBe(1);
+    expect(stats.lolosAdministrasi).toBe(1);
   });
 });

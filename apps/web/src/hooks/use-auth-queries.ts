@@ -9,13 +9,14 @@ export function useUserProfile() {
     queryKey: queryKeys.auth.profile(),
     queryFn: async (): Promise<ApiUser | null> => {
       try {
-        return await authApi.getProfile();
+        const user = await authApi.getProfile();
+        appStore.setCurrentUser(user);
+        return user;
       } catch (err) {
-        console.warn("Failed to fetch user profile:", err);
-        const stored = appStore.getCurrentUser();
-        return stored ? (stored as unknown as ApiUser) : null;
+        return null;
       }
     },
+    retry: false,
   });
 }
 
@@ -23,16 +24,8 @@ export function useInternalUsers() {
   return useQuery({
     queryKey: queryKeys.auth.users(),
     queryFn: async (): Promise<UserInternal[]> => {
-      try {
-        const users = await authApi.getUsers();
-        if (Array.isArray(users) && users.length > 0) {
-          return users;
-        }
-        return appStore.getInternalUsers();
-      } catch (err) {
-        console.warn("Failed to fetch internal users from API, falling back to local store:", err);
-        return appStore.getInternalUsers();
-      }
+      const users = await authApi.getUsers();
+      return Array.isArray(users) ? users : [];
     },
   });
 }
@@ -41,16 +34,8 @@ export function useRoles() {
   return useQuery({
     queryKey: queryKeys.auth.roles(),
     queryFn: async (): Promise<MasterRole[]> => {
-      try {
-        const roles = await authApi.getRoles();
-        if (Array.isArray(roles) && roles.length > 0) {
-          return roles;
-        }
-        return appStore.getRoles();
-      } catch (err) {
-        console.warn("Failed to fetch roles from API, falling back to local store:", err);
-        return appStore.getRoles();
-      }
+      const roles = await authApi.getRoles();
+      return Array.isArray(roles) ? roles : [];
     },
   });
 }
@@ -59,16 +44,8 @@ export function useMenus() {
   return useQuery({
     queryKey: queryKeys.auth.menus(),
     queryFn: async (): Promise<MasterMenu[]> => {
-      try {
-        const menus = await authApi.getMenus();
-        if (Array.isArray(menus) && menus.length > 0) {
-          return menus;
-        }
-        return appStore.getMenus();
-      } catch (err) {
-        console.warn("Failed to fetch menus from API, falling back to local store:", err);
-        return appStore.getMenus();
-      }
+      const menus = await authApi.getMenus();
+      return Array.isArray(menus) ? menus : [];
     },
   });
 }
@@ -79,22 +56,79 @@ export function useLoginMutation() {
   return useMutation({
     mutationFn: async ({
       email,
+      password,
       role,
-      name,
-      userId,
     }: {
       email: string;
-      role: "applicant" | "verifikator" | "interviewer" | "admin";
-      name?: string;
-      userId?: string;
+      password?: string;
+      role?: "applicant" | "verifikator" | "interviewer" | "admin";
     }) => {
-      const res = await authApi.login(email, role, name, userId);
+      const res = await authApi.login(email, password, role);
       appStore.setCurrentUser(res.user);
       return res;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.auth.all });
       queryClient.invalidateQueries({ queryKey: queryKeys.transaksi.myActive() });
+    },
+  });
+}
+
+export function useRegisterMutation() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (data: {
+      nik: string;
+      name: string;
+      email: string;
+      password: string;
+    }) => {
+      const res = await authApi.register(data);
+      appStore.setCurrentUser(res.user);
+      return res;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.auth.all });
+      queryClient.invalidateQueries({ queryKey: queryKeys.transaksi.myActive() });
+    },
+  });
+}
+
+export function useCreateInternalUserMutation() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (data: {
+      name: string;
+      email: string;
+      password?: string;
+      role: "verifikator" | "interviewer" | "admin";
+    }) => {
+      return await authApi.createInternalUser(data);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.auth.users() });
+    },
+  });
+}
+
+export function useUpdateRolePermissionsMutation() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({
+      roleId,
+      accessibleMenus,
+    }: {
+      roleId: string;
+      accessibleMenus: string[];
+    }) => {
+      return await authApi.updateRolePermissions(roleId, accessibleMenus);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.auth.roles() });
+      queryClient.invalidateQueries({ queryKey: queryKeys.auth.menus() });
     },
   });
 }

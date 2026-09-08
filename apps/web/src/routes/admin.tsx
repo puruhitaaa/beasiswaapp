@@ -1,5 +1,5 @@
-import React, { useState } from "react";
-import { createFileRoute } from "@tanstack/react-router";
+import React, { useState, useEffect } from "react";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { toast } from "sonner";
 import { appStore } from "@/lib/store";
 import { SidebarInternal } from "@/components/layout/SidebarInternal";
@@ -8,7 +8,12 @@ import { BeasiswaModal } from "@/components/modals/internal/BeasiswaModal";
 import { PersyaratanModal } from "@/components/modals/internal/PersyaratanModal";
 import { UserInternalModal } from "@/components/modals/internal/UserInternalModal";
 import { RolePermissionModal } from "@/components/modals/internal/RolePermissionModal";
-import { useBeasiswaList, useDeleteBeasiswaMutation } from "@/hooks/use-master-queries";
+import {
+  useBeasiswaList,
+  useDeleteBeasiswaMutation,
+  usePersyaratanList,
+  useDeletePersyaratanMutation,
+} from "@/hooks/use-master-queries";
 import {
   useAllApplications,
   useAdminStatistics,
@@ -29,7 +34,17 @@ export const Route = createFileRoute("/admin")({
 });
 
 function AdminPageComponent() {
-  const [currentUser] = useState(appStore.getCurrentUser());
+  const navigate = useNavigate();
+  const currentUser = appStore.getCurrentUser();
+
+  // Authentication & Role Route Guard
+  useEffect(() => {
+    if (!currentUser || currentUser.role !== "admin") {
+      toast.error("Akses ditolak. Halaman ini hanya untuk Administrator.");
+      navigate({ to: "/login" });
+    }
+  }, [currentUser, navigate]);
+
   const [activeTab, setActiveTab] = useState<"dashboard" | "hasil" | "master" | "setting">("dashboard");
   const [masterSubTab, setMasterSubTab] = useState<"beasiswa" | "syarat">("beasiswa");
   const [settingSubTab, setSettingSubTab] = useState<"user" | "role" | "menu">("user");
@@ -48,9 +63,10 @@ function AdminPageComponent() {
   const { data: roleList = [] } = useRoles();
   const { data: menuList = [] } = useMenus();
   const { data: backendStats } = useAdminStatistics();
-  const persyaratanList: MasterPersyaratan[] = appStore.getPersyaratanList();
+  const { data: persyaratanList = [] } = usePersyaratanList();
 
   const deleteBeasiswaMutation = useDeleteBeasiswaMutation();
+  const deletePersyaratanMutation = useDeletePersyaratanMutation();
   const exportExcelMutation = useExportExcelMutation();
 
   // Export to Excel / CSV format
@@ -73,35 +89,59 @@ function AdminPageComponent() {
     }
   };
 
+  const handleDeletePersyaratan = async (id: string) => {
+    try {
+      await deletePersyaratanMutation.mutateAsync(id);
+      appStore.deletePersyaratan(id);
+      toast.success("Persyaratan berhasil dihapus.");
+    } catch (err: any) {
+      toast.error(err.message || "Gagal menghapus persyaratan.");
+    }
+  };
+
   // Metrics calculation
-  const totalPeserta = backendStats?.totalPeserta ?? (pendaftarList.length || 120);
+  const totalPeserta = backendStats?.totalPeserta ?? pendaftarList.length;
   const prosesAdministrasi =
     backendStats?.prosesAdministrasi ??
-    (pendaftarList.filter((p) => p.status === "SUBMITTED" || p.status === "REVISI" || p.status === "DALAM_PROSES_ADMIN").length || 15);
+    pendaftarList.filter(
+      (p) =>
+        p.status === "SUBMITTED" ||
+        p.status === "REVISI" ||
+        p.status === "DALAM_PROSES_ADMIN"
+    ).length;
   const lulusAdministrasi =
     backendStats?.lolosAdministrasi ??
-    (pendaftarList.filter(
+    pendaftarList.filter(
       (p) =>
         p.status === "LOLOS_ADMIN" ||
         p.status === "DALAM_PROSES_WAWANCARA" ||
         p.status === "LULUS_DITERIMA"
-    ).length || 95);
+    ).length;
   const tidakLulusAdministrasi =
     backendStats?.gugurAdministrasi ??
-    (pendaftarList.filter((p) => p.status === "TIDAK_LOLOS_ADMIN").length || 10);
+    pendaftarList.filter((p) => p.status === "TIDAK_LOLOS_ADMIN").length;
   const prosesWawancara =
     backendStats?.prosesWawancara ??
-    (pendaftarList.filter((p) => p.status === "LOLOS_ADMIN" && !p.wawancara?.nilaiWawancara).length || 20);
+    pendaftarList.filter(
+      (p) => p.status === "LOLOS_ADMIN" && !p.wawancara?.nilaiWawancara
+    ).length;
   const lulusWawancara =
     backendStats?.lulusWawancara ??
-    (pendaftarList.filter(
-      (p) => p.wawancara?.statusHasil === "Lulus" || p.status === "LULUS_DITERIMA"
-    ).length || 70);
+    pendaftarList.filter(
+      (p) =>
+        p.wawancara?.statusHasil === "Lulus" || p.status === "LULUS_DITERIMA"
+    ).length;
   const tidakLulusWawancara =
     backendStats?.gagalWawancara ??
-    (pendaftarList.filter(
-      (p) => p.wawancara?.statusHasil === "Tidak Lulus" || p.status === "TIDAK_LULUS_WAWANCARA"
-    ).length || 5);
+    pendaftarList.filter(
+      (p) =>
+        p.wawancara?.statusHasil === "Tidak Lulus" ||
+        p.status === "TIDAK_LULUS_WAWANCARA"
+    ).length;
+
+  if (!currentUser || currentUser.role !== "admin") {
+    return null;
+  }
 
   return (
     <div className="d-flex min-vh-100 bg-light">
@@ -440,10 +480,7 @@ function AdminPageComponent() {
                               </button>
                               <button
                                 className="btn btn-sm btn-danger"
-                                onClick={() => {
-                                  appStore.deletePersyaratan(s.id);
-                                  toast.success("Persyaratan berhasil dihapus.");
-                                }}
+                                onClick={() => handleDeletePersyaratan(s.id)}
                               >
                                 <i className="bi bi-trash"></i>
                               </button>

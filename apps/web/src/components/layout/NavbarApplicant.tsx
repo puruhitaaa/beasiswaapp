@@ -11,12 +11,11 @@ interface NavbarApplicantProps {
 }
 
 export const NavbarApplicant: React.FC<NavbarApplicantProps> = ({
-  userName = "Yosep Rohayadi",
+  userName = "Peserta",
   onStatusChange,
   currentStatus,
 }) => {
   const [dropdownOpen, setDropdownOpen] = useState(false);
-  const [testMenuOpen, setTestMenuOpen] = useState(false);
   const navigate = useNavigate();
 
   const handleLogout = () => {
@@ -45,81 +44,9 @@ export const NavbarApplicant: React.FC<NavbarApplicantProps> = ({
         </ul>
 
         <div className="d-flex align-items-center gap-2 ms-auto">
-          {/* FSM Status Simulator Switcher for instant role/state inspection */}
-          {onStatusChange && (
-            <div className="dropdown position-relative">
-              <button
-                type="button"
-                className="btn btn-sm btn-warning fw-semibold dropdown-toggle"
-                onClick={() => setTestMenuOpen(!testMenuOpen)}
-                title="Ganti Status Simulasi FSM"
-              >
-                <i className="bi bi-sliders2 me-1"></i>Status: {currentStatus || "DRAFT"}
-              </button>
-              {testMenuOpen && (
-                <ul className="dropdown-menu dropdown-menu-end show shadow" style={{ minWidth: "220px" }}>
-                  <li>
-                    <h6 className="dropdown-header">Uji Kondisi Mockup Pelamar</h6>
-                  </li>
-                  <li>
-                    <button
-                      className={`dropdown-item ${currentStatus === "DRAFT" ? "active" : ""}`}
-                      onClick={() => {
-                        onStatusChange("DRAFT");
-                        setTestMenuOpen(false);
-                      }}
-                    >
-                      <i className="bi bi-journal-plus me-2"></i>1. DRAFT (2_index_awal)
-                    </button>
-                  </li>
-                  <li>
-                    <button
-                      className={`dropdown-item ${currentStatus === "SUBMITTED" ? "active" : ""}`}
-                      onClick={() => {
-                        onStatusChange("SUBMITTED");
-                        setTestMenuOpen(false);
-                      }}
-                    >
-                      <i className="bi bi-lock-fill me-2"></i>2. SUBMITTED (3_index_terkirim)
-                    </button>
-                  </li>
-                  <li>
-                    <button
-                      className={`dropdown-item ${currentStatus === "REVISI" ? "active" : ""}`}
-                      onClick={() => {
-                        onStatusChange("REVISI");
-                        setTestMenuOpen(false);
-                      }}
-                    >
-                      <i className="bi bi-pencil-square me-2 text-warning"></i>3. REVISI (4_index_revisi)
-                    </button>
-                  </li>
-                  <li>
-                    <button
-                      className={`dropdown-item ${currentStatus === "TIDAK_LOLOS_ADMIN" ? "active" : ""}`}
-                      onClick={() => {
-                        onStatusChange("TIDAK_LOLOS_ADMIN");
-                        setTestMenuOpen(false);
-                      }}
-                    >
-                      <i className="bi bi-calendar-x me-2 text-danger"></i>4. DITUTUP / GUGUR (5_index)
-                    </button>
-                  </li>
-                  <li>
-                    <button
-                      className={`dropdown-item ${currentStatus === "LULUS_DITERIMA" ? "active" : ""}`}
-                      onClick={() => {
-                        onStatusChange("LULUS_DITERIMA");
-                        setTestMenuOpen(false);
-                      }}
-                    >
-                      <i className="bi bi-trophy-fill me-2 text-success"></i>5. LULUS (6_index_lulus)
-                    </button>
-                  </li>
-                </ul>
-              )}
-            </div>
-          )}
+          <span className="badge bg-light text-primary border py-2 px-3 fw-semibold">
+            <i className="bi bi-info-circle me-1"></i>Status: {currentStatus || "DRAFT"}
+          </span>
 
           <div className="dropdown position-relative">
             <button

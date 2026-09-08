@@ -29,11 +29,10 @@ export const LoginModal: React.FC<LoginModalProps> = ({
     }
 
     try {
-      const displayName = identifier.includes("@") ? identifier.split("@")[0] : identifier;
       await loginMutation.mutateAsync({
         email: identifier,
+        password,
         role: "applicant",
-        name: displayName,
       });
 
       toast.success("Berhasil masuk ke Dashboard Calon Peserta!");

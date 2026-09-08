@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { useNavigate } from "@tanstack/react-router";
 import { toast } from "sonner";
-import { useLoginMutation } from "@/hooks/use-auth-queries";
+import { useRegisterMutation } from "@/hooks/use-auth-queries";
 import { useInitApplicationMutation } from "@/hooks/use-transaksi-queries";
 
 interface RegisterModalProps {
@@ -20,8 +20,10 @@ export const RegisterModal: React.FC<RegisterModalProps> = ({
   const [nik, setNik] = useState("");
   const [namaLengkap, setNamaLengkap] = useState("");
   const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
   const navigate = useNavigate();
-  const loginMutation = useLoginMutation();
+  const registerMutation = useRegisterMutation();
   const initApplicationMutation = useInitApplicationMutation();
 
   if (!isOpen) return null;
@@ -42,13 +44,21 @@ export const RegisterModal: React.FC<RegisterModalProps> = ({
       toast.error("Format email tidak valid.");
       return;
     }
+    if (password.length < 6) {
+      toast.error("Kata sandi minimal 6 karakter.");
+      return;
+    }
+    if (password !== confirmPassword) {
+      toast.error("Konfirmasi kata sandi tidak cocok.");
+      return;
+    }
 
     try {
-      await loginMutation.mutateAsync({
-        email,
-        role: "applicant",
+      await registerMutation.mutateAsync({
+        nik,
         name: namaLengkap,
-        userId: `user-${nik}`,
+        email,
+        password,
       });
 
       // If a target program was selected, auto-init a draft in the backend
@@ -59,9 +69,7 @@ export const RegisterModal: React.FC<RegisterModalProps> = ({
         // ignore if application already initialized
       }
 
-      toast.success(
-        "Akun berhasil didaftarkan! Kredensial telah dikirimkan ke email Anda."
-      );
+      toast.success("Akun berhasil didaftarkan ke sistem! Selamat datang.");
       onClose();
       navigate({ to: "/applicant" });
     } catch (err: any) {
@@ -130,12 +138,41 @@ export const RegisterModal: React.FC<RegisterModalProps> = ({
                     onChange={(e) => setEmail(e.target.value)}
                     required
                   />
-                  <div className="form-text">
-                    Username dan password sementara akan dikirimkan ke email ini.
+                </div>
+                <div className="row mb-3">
+                  <div className="col-md-6 mb-2 mb-md-0">
+                    <label className="form-label">
+                      Kata Sandi <span className="text-danger">*</span>
+                    </label>
+                    <input
+                      type="password"
+                      className="form-control"
+                      placeholder="Min. 6 karakter"
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      required
+                    />
+                  </div>
+                  <div className="col-md-6">
+                    <label className="form-label">
+                      Konfirmasi Sandi <span className="text-danger">*</span>
+                    </label>
+                    <input
+                      type="password"
+                      className="form-control"
+                      placeholder="Ulangi sandi"
+                      value={confirmPassword}
+                      onChange={(e) => setConfirmPassword(e.target.value)}
+                      required
+                    />
                   </div>
                 </div>
-                <button type="submit" className="btn btn-primary w-100">
-                  Daftar & Kirim Kredensial
+                <button
+                  type="submit"
+                  className="btn btn-primary w-100"
+                  disabled={registerMutation.isPending}
+                >
+                  {registerMutation.isPending ? "Mendaftarkan..." : "Daftar Akun Baru"}
                 </button>
               </form>
             </div>

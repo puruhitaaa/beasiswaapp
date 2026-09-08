@@ -37,8 +37,8 @@ function InternalLoginComponent() {
     try {
       await loginMutation.mutateAsync({
         email: username,
+        password,
         role,
-        name: formattedName,
       });
 
       toast.success(`Berhasil masuk sebagai ${role.toUpperCase()}!`);

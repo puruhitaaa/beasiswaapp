@@ -40,48 +40,27 @@ interface AppState {
 }
 
 function loadState(): AppState {
-  if (typeof window === "undefined") {
-    return {
-      currentUser: {
-        id: "user-yosep",
-        name: "Yosep Rohayadi",
-        email: "yosep@example.com",
-        role: "applicant",
-      },
-      programs: initialPrograms,
-      applications: initialPendaftaranList,
-      internalUsers: initialInternalUsers,
-      persyaratan: initialPersyaratan,
-      roles: initialRoles,
-      menus: initialMenus,
-    };
-  }
-
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (raw) {
-      return JSON.parse(raw);
+  let currentUser = null;
+  if (typeof window !== "undefined") {
+    try {
+      const stored = localStorage.getItem("beasiswaapp_auth_user");
+      if (stored) {
+        currentUser = JSON.parse(stored);
+      }
+    } catch {
+      // ignore
     }
-  } catch {
-    // ignore parsing errors
   }
 
-  const freshState: AppState = {
-    currentUser: {
-      id: "user-yosep",
-      name: "Yosep Rohayadi",
-      email: "yosep@example.com",
-      role: "applicant",
-    },
-    programs: initialPrograms,
-    applications: initialPendaftaranList,
-    internalUsers: initialInternalUsers,
-    persyaratan: initialPersyaratan,
-    roles: initialRoles,
-    menus: initialMenus,
+  return {
+    currentUser,
+    programs: [],
+    applications: [],
+    internalUsers: [],
+    persyaratan: [],
+    roles: [],
+    menus: [],
   };
-  saveState(freshState);
-  return freshState;
 }
 
 function saveState(state: AppState) {
@@ -427,23 +406,22 @@ class AppStore {
   getAdminStatistics() {
     const apps = this.state.applications;
     return {
-      totalPeserta: apps.length + 117, // realistic mock aggregate scale
+      totalPeserta: apps.length,
       prosesAdministrasi: apps.filter(
         (a) => a.status === "SUBMITTED" || a.status === "DALAM_PROSES_ADMIN"
-      ).length + 13,
+      ).length,
       lolosAdministrasi: apps.filter(
         (a) =>
           a.status === "LOLOS_ADMIN" ||
           a.status === "DALAM_PROSES_WAWANCARA" ||
           a.status === "LULUS_DITERIMA"
-      ).length + 93,
-      gugurAdministrasi: apps.filter((a) => a.status === "TIDAK_LOLOS_ADMIN")
-        .length + 9,
-      prosesWawancara: apps.filter((a) => a.status === "LOLOS_ADMIN").length + 19,
-      lulusWawancara: apps.filter((a) => a.status === "LULUS_DITERIMA").length + 69,
+      ).length,
+      gugurAdministrasi: apps.filter((a) => a.status === "TIDAK_LOLOS_ADMIN").length,
+      prosesWawancara: apps.filter((a) => a.status === "LOLOS_ADMIN").length,
+      lulusWawancara: apps.filter((a) => a.status === "LULUS_DITERIMA").length,
       gagalWawancara: apps.filter(
         (a) => a.status === "TIDAK_LULUS_WAWANCARA"
-      ).length + 4,
+      ).length,
     };
   }
 
@@ -574,21 +552,16 @@ class AppStore {
     return this.state.persyaratan;
   }
 
-  // Reset to initial mockup state
+  // Reset to initial clean state
   resetToDefaults() {
     this.state = {
-      currentUser: {
-        id: "user-yosep",
-        name: "Yosep Rohayadi",
-        email: "yosep@example.com",
-        role: "applicant",
-      },
-      programs: initialPrograms,
-      applications: initialPendaftaranList,
-      internalUsers: initialInternalUsers,
-      persyaratan: initialPersyaratan,
-      roles: initialRoles,
-      menus: initialMenus,
+      currentUser: null,
+      programs: [],
+      applications: [],
+      internalUsers: [],
+      persyaratan: [],
+      roles: [],
+      menus: [],
     };
     this.notify();
   }

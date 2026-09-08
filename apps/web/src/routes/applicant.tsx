@@ -1,5 +1,5 @@
-import React, { useState } from "react";
-import { createFileRoute } from "@tanstack/react-router";
+import React, { useState, useEffect } from "react";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { toast } from "sonner";
 import NavbarApplicant from "@/components/layout/NavbarApplicant";
 import ProgramCard from "@/components/cards/ProgramCard";
@@ -20,57 +20,101 @@ export const Route = createFileRoute("/applicant")({
 });
 
 function ApplicantPortalComponent() {
-  const { data: myApp } = useMyActiveApplication();
+  const navigate = useNavigate();
+  const currentUser = appStore.getCurrentUser();
+  const { data: myApp, isLoading: isAppLoading } = useMyActiveApplication();
   const { data: programs = [] } = useBeasiswaList();
   const initMutation = useInitApplicationMutation();
 
   const storeApplication = appStore.getMyActiveApplication();
-  const currentUser = appStore.getCurrentUser();
 
   const [wizardOpen, setWizardOpen] = useState(false);
   const [readonlyOpen, setReadonlyOpen] = useState(false);
   const [daftarUlangOpen, setDaftarUlangOpen] = useState(false);
-  const [previewFile, setPreviewFile] = useState<string | null>(null);
+  const [previewFile, setPreviewFile] = useState<{ fileName: string; fileUrl?: string } | null>(null);
 
-  const fallbackApp: PendaftaranRecord = {
-    id: "prm-fallback",
-    kodePermohonan: "REG-2026-090021",
-    userId: currentUser?.id || "user-yosep",
-    userName: currentUser?.name || "Yosep Rohayadi",
-    userNik: "3201123456780001",
-    beasiswaId: "prog-web",
-    beasiswaNama: "Pelatihan Web Developer Specialist",
-    beasiswaMetode: "Daring",
-    status: "DRAFT" as ApplicationStatus,
-    stepWizardTerakhir: 1,
-    tipePengajuan: "Baru Submit" as const,
-    dokumen: [],
-  };
-
-  // Active application precedence: backend > store > fallback
-  const activeApp: PendaftaranRecord = myApp || storeApplication || fallbackApp;
-
-  const currentStatus = activeApp.status;
-
-  const handleStartApplication = async () => {
-    if (!myApp && (!storeApplication || storeApplication.id === "prm-fallback")) {
-      try {
-        const prog = programs[0] || { id: "prog-web", namaPelatihan: "Pelatihan Web Developer Specialist" };
-        await initMutation.mutateAsync({
-          beasiswaId: prog.id,
-          programName: prog.namaPelatihan,
-        });
-      } catch (err: any) {
-        console.error("Auto-init application failed:", err);
-      }
+  // Authentication Route Guard
+  useEffect(() => {
+    if (!currentUser) {
+      toast.error("Silakan masuk terlebih dahulu untuk mengakses portal pendaftar.");
+      navigate({ to: "/" });
     }
+  }, [currentUser, navigate]);
+
+  // Active application precedence: backend > store
+  const activeApp: PendaftaranRecord | undefined = myApp || storeApplication || undefined;
+
+  const handleStartApplication = () => {
     setWizardOpen(true);
   };
 
-  const handleStatusSwitch = (newStatus: ApplicationStatus) => {
-    appStore.setApplicationStatus(activeApp.id, newStatus);
-    toast.info(`Status permohonan beralih ke: ${newStatus}`);
+  const handleSelectProgram = async (prog: BeasiswaProgram) => {
+    try {
+      await initMutation.mutateAsync({
+        beasiswaId: prog.id,
+        programName: prog.namaPelatihan,
+      });
+      toast.success(`Pendaftaran program ${prog.namaPelatihan} berhasil dimulai!`);
+      setWizardOpen(true);
+    } catch (err: any) {
+      toast.error(err.message || "Gagal memulai pendaftaran program.");
+    }
   };
+
+  if (!currentUser) {
+    return null;
+  }
+
+  // If applicant is logged in but has no active application yet, show program catalog
+  if (!activeApp) {
+    return (
+      <>
+        <NavbarApplicant userName={currentUser.name} />
+
+        <div className="container py-4">
+          <div className="alert alert-primary border-0 shadow-sm d-flex align-items-center mb-4" role="alert">
+            <i className="bi bi-mortarboard-fill fs-3 me-3"></i>
+            <div>
+              <strong className="fs-6">Selamat Datang, {currentUser.name}!</strong>
+              <p className="mb-0 small">
+                Anda belum memiliki permohonan beasiswa yang sedang berjalan. Silakan pilih salah satu program pelatihan di bawah ini untuk memulai pengisian formulir pendaftaran.
+              </p>
+            </div>
+          </div>
+
+          <div className="card border-0 shadow-sm mb-4">
+            <div className="card-header bg-white py-3 fw-bold border-bottom">
+              <i className="bi bi-grid-fill me-2 text-primary"></i>Katalog Program Beasiswa Tersedia
+            </div>
+            <div className="card-body">
+              {isAppLoading ? (
+                <div className="text-center py-5">
+                  <div className="spinner-border text-primary" role="status"></div>
+                  <p className="text-muted mt-2">Memeriksa status pendaftaran...</p>
+                </div>
+              ) : (
+                <div className="row g-3">
+                  {programs.map((prog) => (
+                    <div className="col-md-6 col-lg-4" key={prog.id}>
+                      <ProgramCard
+                        program={prog}
+                        mode="applicant"
+                        isSelected={false}
+                        isLockedDueToOtherActive={false}
+                        onSelect={handleSelectProgram}
+                      />
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      </>
+    );
+  }
+
+  const currentStatus = activeApp.status;
 
   const handleDownloadSK = () => {
     toast.success("Memulai pengunduhan Surat Keputusan Kelulusan (PDF)...");
@@ -114,7 +158,6 @@ function ApplicantPortalComponent() {
       <NavbarApplicant
         userName={activeApp.userName}
         currentStatus={currentStatus}
-        onStatusChange={handleStatusSwitch}
       />
 
       <div className="container py-4">
@@ -360,7 +403,10 @@ function ApplicantPortalComponent() {
                 <button
                   type="button"
                   className="btn btn-outline-primary mt-2"
-                  onClick={() => handleStatusSwitch("DRAFT")}
+                  onClick={() => {
+                    toast.info("Memperbarui status pendaftaran...");
+                    window.location.reload();
+                  }}
                 >
                   <i className="bi bi-arrow-clockwise me-1"></i> Mulai Pengajuan Baru
                 </button>
@@ -563,7 +609,7 @@ function ApplicantPortalComponent() {
         isOpen={readonlyOpen}
         onClose={() => setReadonlyOpen(false)}
         pendaftaran={activeApp}
-        onPreviewFile={(name) => setPreviewFile(name)}
+        onPreviewFile={(name, fileUrl) => setPreviewFile({ fileName: name, fileUrl })}
       />
 
       <DaftarUlangModal
@@ -578,7 +624,8 @@ function ApplicantPortalComponent() {
       <FilePreviewModal
         isOpen={Boolean(previewFile)}
         onClose={() => setPreviewFile(null)}
-        fileName={previewFile || "dokumen.pdf"}
+        fileName={previewFile?.fileName || "dokumen.pdf"}
+        fileUrl={previewFile?.fileUrl}
       />
     </>
   );

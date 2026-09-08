@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { toast } from "sonner";
-import { appStore } from "@/lib/store";
+import { useCreateInternalUserMutation } from "@/hooks/use-auth-queries";
 
 interface UserInternalModalProps {
   isOpen: boolean;
@@ -13,27 +13,39 @@ export const UserInternalModal: React.FC<UserInternalModalProps> = ({
 }) => {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [role, setRole] = useState<"verifikator" | "interviewer" | "admin">("verifikator");
+  const createMutation = useCreateInternalUserMutation();
 
   if (!isOpen) return null;
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!name.trim() || !email.includes("@")) {
       toast.error("Nama dan email valid wajib diisi.");
       return;
     }
+    if (!password || password.length < 8) {
+      toast.error("Kata sandi minimal 8 karakter.");
+      return;
+    }
 
-    appStore.addInternalUser({
-      name,
-      username: email,
-      email,
-      role,
-      status: "Active",
-    });
+    try {
+      await createMutation.mutateAsync({
+        name,
+        email,
+        password,
+        role,
+      });
 
-    toast.success("Akun petugas internal berhasil ditambahkan!");
-    onClose();
+      toast.success("Akun petugas internal berhasil ditambahkan!");
+      setName("");
+      setEmail("");
+      setPassword("");
+      onClose();
+    } catch (err: any) {
+      toast.error(err.message || "Gagal menambahkan akun petugas.");
+    }
   };
 
   return (
@@ -79,6 +91,21 @@ export const UserInternalModal: React.FC<UserInternalModalProps> = ({
                   />
                 </div>
                 <div className="mb-3">
+                  <label className="form-label">Kata Sandi Akses</label>
+                  <input
+                    type="password"
+                    className="form-control"
+                    placeholder="Minimal 8 karakter"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    required
+                    minLength={8}
+                  />
+                  <div className="form-text">
+                    Kata sandi awal untuk masuk ke sistem.
+                  </div>
+                </div>
+                <div className="mb-3">
                   <label className="form-label">Role Akses Sistem</label>
                   <select
                     className="form-select"
@@ -94,8 +121,12 @@ export const UserInternalModal: React.FC<UserInternalModalProps> = ({
                     <option value="admin">Administrator System</option>
                   </select>
                 </div>
-                <button type="submit" className="btn btn-primary w-100">
-                  Simpan Akun Petugas
+                <button
+                  type="submit"
+                  className="btn btn-primary w-100"
+                  disabled={createMutation.isPending}
+                >
+                  {createMutation.isPending ? "Menyimpan..." : "Simpan Akun Petugas"}
                 </button>
               </form>
             </div>

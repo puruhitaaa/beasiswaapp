@@ -11,6 +11,7 @@
     "db:generate": "prisma generate",
     "db:push": "prisma db push",
     "db:migrate": "prisma migrate dev",
+    "db:seed": "tsx src/seed.ts",
     "postinstall": "prisma generate",
     "start": "node dist/index.mjs"
   },

@@ -8,7 +8,7 @@ interface VerifikasiModalProps {
   isOpen: boolean;
   onClose: () => void;
   pendaftaran: PendaftaranRecord | null;
-  onPreviewFile?: (fileName: string) => void;
+  onPreviewFile?: (fileName: string, fileUrl?: string) => void;
   onSuccess?: () => void;
 }
 
@@ -383,7 +383,10 @@ export const VerifikasiModal: React.FC<VerifikasiModalProps> = ({
                                       type="button"
                                       className="btn btn-sm btn-outline-primary w-100"
                                       onClick={() =>
-                                        onPreviewFile?.(doc.fileName || doc.namaPersyaratan)
+                                        onPreviewFile?.(
+                                          doc.fileName || doc.namaPersyaratan,
+                                          doc.fileUrl || (doc.id ? `/api/dokumen/${doc.id}/view` : undefined)
+                                        )
                                       }
                                     >
                                       <i className="bi bi-eye me-1"></i>Pratinjau

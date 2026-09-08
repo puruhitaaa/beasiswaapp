@@ -92,32 +92,31 @@ async function request<T = any>(
 
 // 1. Auth API
 export const authApi = {
-  async login(
-    email: string,
-    role: "applicant" | "verifikator" | "interviewer" | "admin",
-    name?: string,
-    userId?: string
-  ) {
-    const res = await request<{ token: string; user: ApiUser }>("/api/auth/token", {
+  async register(data: {
+    nik: string;
+    name: string;
+    email: string;
+    password: string;
+  }) {
+    const res = await request<{ token: string; user: ApiUser }>("/api/auth/register", {
       method: "POST",
-      body: JSON.stringify({ email, role, name, userId }),
+      body: JSON.stringify(data),
     });
     setStoredSession(res.token, res.user);
     return res;
   },
 
-  async ensureSession(
-    defaultRole: "applicant" | "verifikator" | "interviewer" | "admin" = "applicant",
-    defaultEmail = "yosep@example.com",
-    defaultName = "Yosep Rohayadi"
-  ): Promise<ApiUser> {
-    const user = getStoredUser();
-    const token = getStoredToken();
-    if (user && token) {
-      return user;
-    }
-    const res = await this.login(defaultEmail, defaultRole, defaultName);
-    return res.user;
+  async login(
+    email: string,
+    password?: string,
+    role?: "applicant" | "verifikator" | "interviewer" | "admin"
+  ) {
+    const res = await request<{ token: string; user: ApiUser }>("/api/auth/login", {
+      method: "POST",
+      body: JSON.stringify({ email, password, role }),
+    });
+    setStoredSession(res.token, res.user);
+    return res;
   },
 
   async getProfile() {
@@ -132,8 +131,27 @@ export const authApi = {
     return request<any[]>("/api/rbac/users");
   },
 
+  async createInternalUser(data: {
+    name: string;
+    email: string;
+    password?: string;
+    role: "verifikator" | "interviewer" | "admin";
+  }) {
+    return request<any>("/api/rbac/users", {
+      method: "POST",
+      body: JSON.stringify(data),
+    });
+  },
+
   async getRoles() {
     return request<any[]>("/api/rbac/roles");
+  },
+
+  async updateRolePermissions(roleId: string, accessibleMenus: string[]) {
+    return request<any>(`/api/rbac/roles/${roleId}/permissions`, {
+      method: "PUT",
+      body: JSON.stringify({ accessibleMenus }),
+    });
   },
 
   logout() {
@@ -160,6 +178,29 @@ export const masterApi = {
 
   async deleteBeasiswa(id: string) {
     return request<any>(`/api/master/beasiswa/${id}`, {
+      method: "DELETE",
+    });
+  },
+
+  async getPersyaratan() {
+    return request<any[]>("/api/master/persyaratan");
+  },
+
+  async createPersyaratan(data: {
+    beasiswaId?: string;
+    namaPersyaratan: string;
+    formatAllowed: string;
+    maxSize: string;
+    isMandatory: boolean;
+  }) {
+    return request<any>("/api/master/persyaratan", {
+      method: "POST",
+      body: JSON.stringify(data),
+    });
+  },
+
+  async deletePersyaratan(id: string) {
+    return request<any>(`/api/master/persyaratan/${id}`, {
       method: "DELETE",
     });
   },

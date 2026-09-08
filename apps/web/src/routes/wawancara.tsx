@@ -1,5 +1,6 @@
-import React, { useState } from "react";
-import { createFileRoute } from "@tanstack/react-router";
+import React, { useState, useEffect } from "react";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { toast } from "sonner";
 import { appStore } from "@/lib/store";
 import { useWawancaraQueue } from "@/hooks/use-transaksi-queries";
 import { SidebarInternal } from "@/components/layout/SidebarInternal";
@@ -12,7 +13,17 @@ export const Route = createFileRoute("/wawancara")({
 });
 
 function WawancaraPageComponent() {
-  const [currentUser] = useState(appStore.getCurrentUser());
+  const navigate = useNavigate();
+  const currentUser = appStore.getCurrentUser();
+
+  // Authentication & Role Route Guard
+  useEffect(() => {
+    if (!currentUser || (currentUser.role !== "interviewer" && currentUser.role !== "admin")) {
+      toast.error("Akses ditolak. Halaman ini hanya untuk Petugas Wawancara.");
+      navigate({ to: "/login" });
+    }
+  }, [currentUser, navigate]);
+
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("");
   const [selectedCandidate, setSelectedCandidate] = useState<PendaftaranRecord | null>(null);
@@ -45,17 +56,21 @@ function WawancaraPageComponent() {
   });
 
   // Statistics
-  const totalSiap = candidates.length || 48;
+  const totalSiap = candidates.length;
   const countBelumDinilai =
-    candidates.filter((p) => !p.wawancara?.nilaiWawancara).length || 15;
+    candidates.filter((p) => !p.wawancara?.nilaiWawancara).length;
   const countLulus =
     candidates.filter(
       (p) => p.wawancara?.statusHasil === "Lulus" || p.status === "LULUS_DITERIMA"
-    ).length || 30;
+    ).length;
   const countTidakLulus =
     candidates.filter(
       (p) => p.wawancara?.statusHasil === "Tidak Lulus" || p.status === "TIDAK_LULUS_WAWANCARA"
-    ).length || 3;
+    ).length;
+
+  if (!currentUser || (currentUser.role !== "interviewer" && currentUser.role !== "admin")) {
+    return null;
+  }
 
   const handleOpenWawancara = (c: PendaftaranRecord) => {
     setSelectedCandidate(c);

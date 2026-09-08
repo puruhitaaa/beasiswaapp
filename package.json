@@ -19,6 +19,7 @@
     "dev:web": "pnpm --filter web dev",
     "db:generate": "pnpm -r --if-present run db:generate",
     "db:push": "pnpm -r --if-present run db:push",
+    "db:seed": "pnpm -r --if-present run db:seed",
     "db:start": "docker compose up -d mysql postgres",
     "db:stop": "docker compose stop mysql postgres",
     "docker:build": "docker compose build",

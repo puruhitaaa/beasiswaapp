@@ -1,6 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { masterApi } from "@/lib/api";
-import { appStore } from "@/lib/store";
 import { queryKeys } from "@/lib/query-client";
 import type { BeasiswaProgram } from "@/types";
 
@@ -8,16 +7,8 @@ export function useBeasiswaList() {
   return useQuery({
     queryKey: queryKeys.master.beasiswa(),
     queryFn: async (): Promise<BeasiswaProgram[]> => {
-      try {
-        const data = await masterApi.getBeasiswaList();
-        if (Array.isArray(data) && data.length > 0) {
-          return data;
-        }
-        return appStore.getBeasiswaList();
-      } catch (err) {
-        console.warn("Failed to fetch beasiswa from API, falling back to local store:", err);
-        return appStore.getBeasiswaList();
-      }
+      const data = await masterApi.getBeasiswaList();
+      return Array.isArray(data) ? data : [];
     },
   });
 }
@@ -27,13 +18,7 @@ export function useBeasiswaDetail(id: string) {
     queryKey: queryKeys.master.beasiswaDetail(id),
     queryFn: async (): Promise<BeasiswaProgram | null> => {
       if (!id) return null;
-      try {
-        const data = await masterApi.getBeasiswaById(id);
-        return data ?? null;
-      } catch (err) {
-        console.warn(`Failed to fetch beasiswa ${id} from API:`, err);
-        return appStore.getBeasiswaList().find((b) => b.id === id) ?? null;
-      }
+      return await masterApi.getBeasiswaById(id);
     },
     enabled: Boolean(id),
   });
@@ -72,6 +57,51 @@ export function useDeleteBeasiswaMutation() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.master.beasiswa() });
       queryClient.invalidateQueries({ queryKey: queryKeys.transaksi.adminStats() });
+    },
+  });
+}
+
+// Persyaratan Hooks
+export function usePersyaratanList() {
+  return useQuery({
+    queryKey: ["master", "persyaratan"],
+    queryFn: async () => {
+      const data = await masterApi.getPersyaratan();
+      return Array.isArray(data) ? data : [];
+    },
+  });
+}
+
+export function useCreatePersyaratanMutation() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (data: {
+      beasiswaId?: string;
+      namaPersyaratan: string;
+      formatAllowed: string;
+      maxSize: string;
+      isMandatory: boolean;
+    }) => {
+      return await masterApi.createPersyaratan(data);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["master", "persyaratan"] });
+      queryClient.invalidateQueries({ queryKey: queryKeys.master.beasiswa() });
+    },
+  });
+}
+
+export function useDeletePersyaratanMutation() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (id: string) => {
+      return await masterApi.deletePersyaratan(id);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["master", "persyaratan"] });
+      queryClient.invalidateQueries({ queryKey: queryKeys.master.beasiswa() });
     },
   });
 }

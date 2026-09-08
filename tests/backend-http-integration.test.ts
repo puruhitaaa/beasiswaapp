@@ -43,7 +43,7 @@ describe("Web Client API Integration & Contract Verification", () => {
       })
     );
 
-    const res = await authApi.login(mockUser.email, mockUser.role, mockUser.name);
+    const res = await authApi.login(mockUser.email, "Peserta123!", mockUser.role);
     expect(res.token).toBe(mockToken);
     expect(res.user.id).toBe(mockUser.id);
     expect(getStoredToken()).toBe(mockToken);
@@ -54,29 +54,31 @@ describe("Web Client API Integration & Contract Verification", () => {
     expect(getStoredUser()).toBeNull();
   });
 
-  it("ensureSession returns existing session if token is present, or logs in seamlessly", async () => {
+  it("authApi.register sends registration payload and receives authenticated session", async () => {
     const mockUser = {
-      id: "v-1",
-      name: "Ahmad Rivaldi",
-      email: "ahmad@beasiswa.go.id",
-      role: "verifikator" as const,
+      id: "u-reg-1",
+      name: "Rina",
+      email: "rina@example.com",
+      role: "applicant" as const,
     };
-    const mockToken = "mock.verif.jwt";
+    const mockToken = "mock.reg.jwt";
 
     vi.spyOn(global, "fetch").mockResolvedValueOnce(
-      new Response(JSON.stringify({ token: mockToken, user: mockUser }), {
-        status: 200,
+      new Response(JSON.stringify({ success: true, token: mockToken, user: mockUser }), {
+        status: 201,
         headers: { "Content-Type": "application/json" },
       })
     );
 
-    const user = await authApi.ensureSession("verifikator", mockUser.email, mockUser.name);
-    expect(user.id).toBe("v-1");
+    const res = await authApi.register({
+      name: "Rina",
+      email: "rina@example.com",
+      password: "Password123!",
+      nik: "3201112233440001",
+    });
+    expect(res.success).toBe(true);
+    expect(res.token).toBe(mockToken);
     expect(getStoredToken()).toBe(mockToken);
-
-    // Second call reuses stored session without making an HTTP request
-    const cachedUser = await authApi.ensureSession("verifikator");
-    expect(cachedUser.id).toBe("v-1");
   });
 
   it("dokumenApi sets up multipart FormData and generates view/download URLs", async () => {
