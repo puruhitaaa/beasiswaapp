@@ -92,11 +92,25 @@ export async function seedRbac() {
       passwordRaw: "Verifikator123!",
     },
     {
+      id: "v-2",
+      name: "Petugas Verifikator",
+      email: "verifikator@beasiswa.go.id",
+      roleName: "verifikator",
+      passwordRaw: "Verifikator123!",
+    },
+    {
       id: "i-1",
       name: "Lembaga Seleksi A",
       email: "interviewer@beasiswa.go.id",
       roleName: "interviewer",
       passwordRaw: "Interviewer123!",
+    },
+    {
+      id: "user-peserta",
+      name: "Calon Peserta",
+      email: "peserta@beasiswa.go.id",
+      roleName: "applicant",
+      passwordRaw: "Peserta123!",
     },
     {
       id: "user-yosep",
