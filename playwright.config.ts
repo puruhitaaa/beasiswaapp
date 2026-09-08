@@ -19,13 +19,23 @@ export default defineConfig({
     baseURL: process.env.BASE_URL || "http://localhost:3001",
     trace: "on-first-retry",
     screenshot: "only-on-failure",
-    video: "on",
-    viewport: { width: 1280, height: 720 },
+    video: {
+      mode: "on",
+      size: { width: 1920, height: 1080 },
+    },
+    viewport: { width: 1920, height: 1080 },
   },
   projects: [
     {
       name: "chromium",
-      use: { ...devices["Desktop Chrome"] },
+      use: {
+        ...devices["Desktop Chrome"],
+        viewport: { width: 1920, height: 1080 },
+        video: {
+          mode: "on",
+          size: { width: 1920, height: 1080 },
+        },
+      },
     },
   ],
   webServer: {
