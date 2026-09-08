@@ -1,5 +1,7 @@
-import React, { useState, useEffect } from "react";
+import React, { useEffect } from "react";
+import { useForm } from "@tanstack/react-form";
 import { toast } from "sonner";
+import { z } from "zod";
 import { appStore } from "@/lib/store";
 import { useMenus, useUpdateRolePermissionsMutation } from "@/hooks/use-auth-queries";
 import type { MasterRole } from "@/types";
@@ -10,6 +12,10 @@ interface RolePermissionModalProps {
   role: MasterRole | null;
 }
 
+const rolePermissionSchema = z.object({
+  selectedMenus: z.array(z.string()),
+});
+
 export const RolePermissionModal: React.FC<RolePermissionModalProps> = ({
   isOpen,
   onClose,
@@ -17,38 +23,39 @@ export const RolePermissionModal: React.FC<RolePermissionModalProps> = ({
 }) => {
   const { data: menus = [] } = useMenus();
   const updatePermissionsMutation = useUpdateRolePermissionsMutation();
-  const [selectedMenus, setSelectedMenus] = useState<string[]>([]);
+
+  const form = useForm({
+    defaultValues: {
+      selectedMenus: (role?.accessibleMenus || []) as string[],
+    },
+    validators: {
+      onSubmit: rolePermissionSchema,
+    },
+    onSubmit: async ({ value }) => {
+      if (!role) return;
+      try {
+        await updatePermissionsMutation.mutateAsync({
+          roleId: role.id,
+          accessibleMenus: value.selectedMenus,
+        });
+        appStore.updateRole(role.id, value.selectedMenus);
+        toast.success(`Hak akses menu untuk role ${role.name} berhasil diperbarui!`);
+        onClose();
+      } catch (err: any) {
+        toast.error(err.message || "Gagal memperbarui hak akses role.");
+      }
+    },
+  });
 
   useEffect(() => {
     if (role) {
-      setSelectedMenus(role.accessibleMenus || []);
+      form.reset({
+        selectedMenus: role.accessibleMenus || [],
+      });
     }
   }, [role]);
 
   if (!isOpen || !role) return null;
-
-  const toggleMenu = (menuName: string) => {
-    if (selectedMenus.includes(menuName)) {
-      setSelectedMenus(selectedMenus.filter((m) => m !== menuName));
-    } else {
-      setSelectedMenus([...selectedMenus, menuName]);
-    }
-  };
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    try {
-      await updatePermissionsMutation.mutateAsync({
-        roleId: role.id,
-        accessibleMenus: selectedMenus,
-      });
-      appStore.updateRole(role.id, selectedMenus);
-      toast.success(`Hak akses menu untuk role ${role.name} berhasil diperbarui!`);
-      onClose();
-    } catch (err: any) {
-      toast.error(err.message || "Gagal memperbarui hak akses role.");
-    }
-  };
 
   return (
     <>
@@ -76,45 +83,65 @@ export const RolePermissionModal: React.FC<RolePermissionModalProps> = ({
                 peran <strong>{role.name}</strong>.
               </p>
 
-              <div className="table-responsive">
-                <table className="table table-bordered align-middle">
-                  <thead className="table-light">
-                    <tr>
-                      <th>Nama Menu Terdaftar</th>
-                      <th>URL Route</th>
-                      <th className="text-center" style={{ width: "120px" }}>
-                        Izin Akses
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {menus.map((m) => {
-                      const isAllowed = selectedMenus.includes(m.name);
-                      return (
-                        <tr key={m.id}>
-                          <td>
-                            <i className={`bi ${m.icon} me-2 text-primary`}></i>
-                            <strong>{m.name}</strong>
-                          </td>
-                          <td>
-                            <code>{m.route}</code>
-                          </td>
-                          <td className="text-center">
-                            <div className="form-check form-switch d-inline-block">
-                              <input
-                                className="form-check-input"
-                                type="checkbox"
-                                checked={isAllowed}
-                                onChange={() => toggleMenu(m.name)}
-                              />
-                            </div>
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
+              <form
+                id="rolePermissionForm"
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  form.handleSubmit();
+                }}
+              >
+                <form.Field name="selectedMenus">
+                  {(field) => (
+                    <div className="table-responsive">
+                      <table className="table table-bordered align-middle">
+                        <thead className="table-light">
+                          <tr>
+                            <th>Nama Menu Terdaftar</th>
+                            <th>URL Route</th>
+                            <th className="text-center" style={{ width: "120px" }}>
+                              Izin Akses
+                            </th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {menus.map((m) => {
+                            const isAllowed = field.state.value.includes(m.name);
+                            return (
+                              <tr key={m.id}>
+                                <td>
+                                  <i className={`bi ${m.icon} me-2 text-primary`}></i>
+                                  <strong>{m.name}</strong>
+                                </td>
+                                <td>
+                                  <code>{m.route}</code>
+                                </td>
+                                <td className="text-center">
+                                  <div className="form-check form-switch d-inline-block">
+                                    <input
+                                      className="form-check-input"
+                                      type="checkbox"
+                                      checked={isAllowed}
+                                      onChange={() => {
+                                        const current = field.state.value;
+                                        if (current.includes(m.name)) {
+                                          field.handleChange(current.filter((name) => name !== m.name));
+                                        } else {
+                                          field.handleChange([...current, m.name]);
+                                        }
+                                      }}
+                                    />
+                                  </div>
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </form.Field>
+              </form>
 
               <div className="alert alert-light border small text-muted mb-0">
                 <i className="bi bi-info-circle me-1 text-primary"></i>
@@ -125,9 +152,24 @@ export const RolePermissionModal: React.FC<RolePermissionModalProps> = ({
               <button type="button" className="btn btn-secondary" onClick={onClose}>
                 Tutup
               </button>
-              <button type="button" className="btn btn-primary" onClick={handleSubmit}>
-                Simpan Hak Akses
-              </button>
+              <form.Subscribe
+                selector={(state) => ({
+                  isSubmitting: state.isSubmitting,
+                })}
+              >
+                {({ isSubmitting }) => (
+                  <button
+                    type="submit"
+                    form="rolePermissionForm"
+                    disabled={isSubmitting || updatePermissionsMutation.isPending}
+                    className="btn btn-primary"
+                  >
+                    {isSubmitting || updatePermissionsMutation.isPending
+                      ? "Menyimpan..."
+                      : "Simpan Hak Akses"}
+                  </button>
+                )}
+              </form.Subscribe>
             </div>
           </div>
         </div>

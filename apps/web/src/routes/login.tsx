@@ -1,59 +1,57 @@
-import React, { useState } from "react";
+import React from "react";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { useForm } from "@tanstack/react-form";
 import { toast } from "sonner";
+import { z } from "zod";
 import { useLoginMutation } from "@/hooks/use-auth-queries";
 
 export const Route = createFileRoute("/login")({
   component: InternalLoginComponent,
 });
 
+const loginSchema = z.object({
+  username: z.string().min(1, "Harap isi ID pengguna."),
+  password: z.string().min(1, "Harap isi kata sandi."),
+  role: z.enum(["verifikator", "interviewer", "admin"]),
+  rememberMe: z.boolean(),
+});
+
 function InternalLoginComponent() {
-  const [username, setUsername] = useState("");
-  const [password, setPassword] = useState("");
-  const [role, setRole] = useState<"verifikator" | "interviewer" | "admin">("verifikator");
-  const [rememberMe, setRememberMe] = useState(true);
   const navigate = useNavigate();
   const loginMutation = useLoginMutation();
 
-  const handleRoleChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    const selected = e.target.value as "verifikator" | "interviewer" | "admin";
-    setRole(selected);
-  };
+  const form = useForm({
+    defaultValues: {
+      username: "",
+      password: "",
+      role: "verifikator" as "verifikator" | "interviewer" | "admin",
+      rememberMe: true,
+    },
+    validators: {
+      onSubmit: loginSchema,
+    },
+    onSubmit: async ({ value }) => {
+      try {
+        await loginMutation.mutateAsync({
+          email: value.username,
+          password: value.password,
+          role: value.role,
+        });
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!username || !password) {
-      toast.error("Harap isi ID pengguna dan kata sandi.");
-      return;
-    }
+        toast.success(`Berhasil masuk sebagai ${value.role.toUpperCase()}!`);
 
-    const derivedName = username.includes("@")
-      ? username.split("@")[0].replace(/[._]/g, " ")
-      : username;
-    const formattedName = derivedName
-      ? derivedName.charAt(0).toUpperCase() + derivedName.slice(1)
-      : role.toUpperCase();
-
-    try {
-      await loginMutation.mutateAsync({
-        email: username,
-        password,
-        role,
-      });
-
-      toast.success(`Berhasil masuk sebagai ${role.toUpperCase()}!`);
-
-      if (role === "verifikator") {
-        navigate({ to: "/verifikator" });
-      } else if (role === "interviewer") {
-        navigate({ to: "/wawancara" });
-      } else {
-        navigate({ to: "/admin" });
+        if (value.role === "verifikator") {
+          navigate({ to: "/verifikator" });
+        } else if (value.role === "interviewer") {
+          navigate({ to: "/wawancara" });
+        } else {
+          navigate({ to: "/admin" });
+        }
+      } catch (err: any) {
+        toast.error(err.message || "Gagal masuk. Periksa kembali akun Anda.");
       }
-    } catch (err: any) {
-      toast.error(err.message || "Gagal masuk. Periksa kembali akun Anda.");
-    }
-  };
+    },
+  });
 
   return (
     <div
@@ -81,86 +79,151 @@ function InternalLoginComponent() {
               <div>Area khusus pemroses data (Verifikator, Lembaga Seleksi, & Admin).</div>
             </div>
 
-            <form onSubmit={handleSubmit}>
-              <div className="mb-3">
-                <label className="form-label fw-semibold text-secondary small">
-                  Username / NIP / Email Internal
-                </label>
-                <div className="input-group">
-                  <span className="input-group-text bg-light border-end-0 text-primary">
-                    <i className="bi bi-person-badge-fill"></i>
-                  </span>
-                  <input
-                    type="text"
-                    className="form-control border-start-0 bg-light ps-0"
-                    placeholder="Masukkan ID pengguna"
-                    value={username}
-                    onChange={(e) => setUsername(e.target.value)}
-                    required
-                  />
-                </div>
-              </div>
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                form.handleSubmit();
+              }}
+            >
+              <form.Field name="username">
+                {(field) => (
+                  <div className="mb-3">
+                    <label htmlFor={field.name} className="form-label fw-semibold text-secondary small">
+                      Username / NIP / Email Internal
+                    </label>
+                    <div className="input-group">
+                      <span className="input-group-text bg-light border-end-0 text-primary">
+                        <i className="bi bi-person-badge-fill"></i>
+                      </span>
+                      <input
+                        id={field.name}
+                        name={field.name}
+                        type="text"
+                        className={`form-control border-start-0 bg-light ps-0 ${field.state.meta.errors.length ? "is-invalid" : ""}`}
+                        placeholder="Masukkan ID pengguna"
+                        value={field.state.value}
+                        onBlur={field.handleBlur}
+                        onChange={(e) => field.handleChange(e.target.value)}
+                      />
+                    </div>
+                    {field.state.meta.errors.map((error) => (
+                      <div
+                        key={error ? (typeof error === "string" ? error : error.message) : ""}
+                        className="invalid-feedback d-block"
+                      >
+                        {error ? (typeof error === "string" ? error : error.message) : ""}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </form.Field>
 
-              <div className="mb-3">
-                <label className="form-label fw-semibold text-secondary small">Kata Sandi</label>
-                <div className="input-group">
-                  <span className="input-group-text bg-light border-end-0 text-primary">
-                    <i className="bi bi-key-fill"></i>
-                  </span>
-                  <input
-                    type="password"
-                    className="form-control border-start-0 bg-light ps-0"
-                    placeholder="Masukkan password"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    required
-                  />
-                </div>
-              </div>
+              <form.Field name="password">
+                {(field) => (
+                  <div className="mb-3">
+                    <label htmlFor={field.name} className="form-label fw-semibold text-secondary small">
+                      Kata Sandi
+                    </label>
+                    <div className="input-group">
+                      <span className="input-group-text bg-light border-end-0 text-primary">
+                        <i className="bi bi-key-fill"></i>
+                      </span>
+                      <input
+                        id={field.name}
+                        name={field.name}
+                        type="password"
+                        className={`form-control border-start-0 bg-light ps-0 ${field.state.meta.errors.length ? "is-invalid" : ""}`}
+                        placeholder="Masukkan password"
+                        value={field.state.value}
+                        onBlur={field.handleBlur}
+                        onChange={(e) => field.handleChange(e.target.value)}
+                      />
+                    </div>
+                    {field.state.meta.errors.map((error) => (
+                      <div
+                        key={error ? (typeof error === "string" ? error : error.message) : ""}
+                        className="invalid-feedback d-block"
+                      >
+                        {error ? (typeof error === "string" ? error : error.message) : ""}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </form.Field>
 
-              <div className="mb-4">
-                <label className="form-label fw-semibold text-secondary small">
-                  Masuk Sebagai (Role Akses)
-                </label>
-                <select
-                  className="form-select bg-light"
-                  value={role}
-                  onChange={handleRoleChange}
-                >
-                  <option value="verifikator">Verifikator (Seleksi Administrasi)</option>
-                  <option value="interviewer">Lembaga Seleksi (Wawancara)</option>
-                  <option value="admin">Administrator System</option>
-                </select>
-              </div>
+              <form.Field name="role">
+                {(field) => (
+                  <div className="mb-4">
+                    <label htmlFor={field.name} className="form-label fw-semibold text-secondary small">
+                      Masuk Sebagai (Role Akses)
+                    </label>
+                    <select
+                      id={field.name}
+                      name={field.name}
+                      className="form-select bg-light"
+                      value={field.state.value}
+                      onBlur={field.handleBlur}
+                      onChange={(e) =>
+                        field.handleChange(
+                          e.target.value as "verifikator" | "interviewer" | "admin"
+                        )
+                      }
+                    >
+                      <option value="verifikator">Verifikator (Seleksi Administrasi)</option>
+                      <option value="interviewer">Lembaga Seleksi (Wawancara)</option>
+                      <option value="admin">Administrator System</option>
+                    </select>
+                  </div>
+                )}
+              </form.Field>
 
-              <div className="d-flex justify-content-between align-items-center mb-4">
-                <div className="form-check">
-                  <input
-                    className="form-check-input"
-                    type="checkbox"
-                    id="rememberMe"
-                    checked={rememberMe}
-                    onChange={(e) => setRememberMe(e.target.checked)}
-                  />
-                  <label className="form-check-label small text-secondary" htmlFor="rememberMe">
-                    Ingat Saya
-                  </label>
-                </div>
-                <a
-                  href="#"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    toast.info("Fitur reset password via admin internal.");
-                  }}
-                  className="small text-decoration-none text-primary fw-semibold"
-                >
-                  Lupa Password?
-                </a>
-              </div>
+              <form.Field name="rememberMe">
+                {(field) => (
+                  <div className="d-flex justify-content-between align-items-center mb-4">
+                    <div className="form-check">
+                      <input
+                        className="form-check-input"
+                        type="checkbox"
+                        id={field.name}
+                        name={field.name}
+                        checked={field.state.value}
+                        onChange={(e) => field.handleChange(e.target.checked)}
+                      />
+                      <label className="form-check-label small text-secondary" htmlFor={field.name}>
+                        Ingat Saya
+                      </label>
+                    </div>
+                    <a
+                      href="#"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        toast.info("Fitur reset password via admin internal.");
+                      }}
+                      className="small text-decoration-none text-primary fw-semibold"
+                    >
+                      Lupa Password?
+                    </a>
+                  </div>
+                )}
+              </form.Field>
 
-              <button type="submit" className="btn btn-primary btn-login w-100 mb-2 text-white">
-                <i className="bi bi-box-arrow-in-right me-2"></i>Masuk Dashboard
-              </button>
+              <form.Subscribe
+                selector={(state) => ({
+                  isSubmitting: state.isSubmitting,
+                })}
+              >
+                {({ isSubmitting }) => (
+                  <button
+                    type="submit"
+                    disabled={isSubmitting}
+                    className="btn btn-primary btn-login w-100 mb-2 text-white"
+                  >
+                    <i className="bi bi-box-arrow-in-right me-2"></i>
+                    {isSubmitting ? "Memproses..." : "Masuk Dashboard"}
+                  </button>
+                )}
+              </form.Subscribe>
             </form>
           </div>
 

@@ -1,5 +1,7 @@
-import React, { useState, useEffect } from "react";
+import React, { useEffect } from "react";
+import { useForm } from "@tanstack/react-form";
 import { toast } from "sonner";
+import { z } from "zod";
 import { appStore } from "@/lib/store";
 import { useSubmitWawancaraMutation } from "@/hooks/use-transaksi-queries";
 import type { PendaftaranRecord } from "@/types";
@@ -11,92 +13,96 @@ interface WawancaraModalProps {
   onSuccess?: () => void;
 }
 
+const wawancaraSchema = z.object({
+  skorKomunikasi: z.number().min(0, "Skor minimal 0.").max(100, "Skor maksimal 100."),
+  skorTeknis: z.number().min(0, "Skor minimal 0.").max(100, "Skor maksimal 100."),
+  skorKomitmen: z.number().min(0, "Skor minimal 0.").max(100, "Skor maksimal 100."),
+  statusHasil: z.enum(["Lulus", "Tidak Lulus"]),
+  catatanEvaluasi: z.string().min(1, "Catatan evaluasi wajib diisi."),
+});
+
 export const WawancaraModal: React.FC<WawancaraModalProps> = ({
   isOpen,
   onClose,
   pendaftaran,
   onSuccess,
 }) => {
-  const [skorKomunikasi, setSkorKomunikasi] = useState<number | "">("");
-  const [skorTeknis, setSkorTeknis] = useState<number | "">("");
-  const [skorKomitmen, setSkorKomitmen] = useState<number | "">("");
-  const [statusWawancara, setStatusWawancara] = useState<"Lulus" | "Tidak Lulus">("Lulus");
-  const [catatanEvaluasi, setCatatanEvaluasi] = useState("");
   const submitWawancaraMutation = useSubmitWawancaraMutation();
+
+  const form = useForm({
+    defaultValues: {
+      skorKomunikasi: pendaftaran?.wawancara?.skorKomunikasi ?? 0,
+      skorTeknis: pendaftaran?.wawancara?.skorTeknis ?? 0,
+      skorKomitmen: pendaftaran?.wawancara?.skorKomitmen ?? 0,
+      statusHasil: (pendaftaran?.wawancara?.statusHasil ?? "Lulus") as "Lulus" | "Tidak Lulus",
+      catatanEvaluasi: pendaftaran?.wawancara?.catatanEvaluasi ?? "",
+    },
+    validators: {
+      onSubmit: wawancaraSchema,
+    },
+    onSubmit: async ({ value }) => {
+      if (!pendaftaran) return;
+      const k = Number(value.skorKomunikasi) || 0;
+      const t = Number(value.skorTeknis) || 0;
+      const m = Number(value.skorKomitmen) || 0;
+      const nilaiAkhir = Number((k * 0.3 + t * 0.4 + m * 0.3).toFixed(2));
+
+      try {
+        await submitWawancaraMutation.mutateAsync({
+          id: pendaftaran.id,
+          scoring: {
+            skorKomunikasi: k,
+            skorTeknis: t,
+            skorKomitmen: m,
+            nilaiWawancara: nilaiAkhir,
+            statusHasil: value.statusHasil,
+            catatanEvaluasi: value.catatanEvaluasi,
+          },
+        });
+
+        appStore.submitWawancaraScoring(
+          pendaftaran.id,
+          k,
+          t,
+          m,
+          value.statusHasil,
+          value.catatanEvaluasi
+        );
+
+        toast.success(
+          `Hasil wawancara berhasil disimpan! Nilai Akhir: ${nilaiAkhir} (${value.statusHasil})`
+        );
+        onSuccess?.();
+        onClose();
+      } catch (err: any) {
+        toast.error(err.message || "Gagal menyimpan hasil penilaian wawancara.");
+      }
+    },
+  });
 
   useEffect(() => {
     if (pendaftaran) {
       if (pendaftaran.wawancara) {
-        setSkorKomunikasi(pendaftaran.wawancara.skorKomunikasi);
-        setSkorTeknis(pendaftaran.wawancara.skorTeknis);
-        setSkorKomitmen(pendaftaran.wawancara.skorKomitmen);
-        setStatusWawancara(pendaftaran.wawancara.statusHasil);
-        setCatatanEvaluasi(pendaftaran.wawancara.catatanEvaluasi || "");
+        form.reset({
+          skorKomunikasi: pendaftaran.wawancara.skorKomunikasi,
+          skorTeknis: pendaftaran.wawancara.skorTeknis,
+          skorKomitmen: pendaftaran.wawancara.skorKomitmen,
+          statusHasil: pendaftaran.wawancara.statusHasil,
+          catatanEvaluasi: pendaftaran.wawancara.catatanEvaluasi || "",
+        });
       } else {
-        setSkorKomunikasi("");
-        setSkorTeknis("");
-        setSkorKomitmen("");
-        setStatusWawancara("Lulus");
-        setCatatanEvaluasi("");
+        form.reset({
+          skorKomunikasi: 0,
+          skorTeknis: 0,
+          skorKomitmen: 0,
+          statusHasil: "Lulus",
+          catatanEvaluasi: "",
+        });
       }
     }
   }, [pendaftaran]);
 
   if (!isOpen || !pendaftaran) return null;
-
-  const numKomunikasi = typeof skorKomunikasi === "number" ? skorKomunikasi : 0;
-  const numTeknis = typeof skorTeknis === "number" ? skorTeknis : 0;
-  const numKomitmen = typeof skorKomitmen === "number" ? skorKomitmen : 0;
-
-  // Formula exact: (K * 0.3) + (T * 0.4) + (M * 0.3)
-  const nilaiAkhir = (
-    numKomunikasi * 0.3 +
-    numTeknis * 0.4 +
-    numKomitmen * 0.3
-  ).toFixed(2);
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (skorKomunikasi === "" || skorTeknis === "" || skorKomitmen === "") {
-      toast.error("Harap isi semua skor penilaian wawancara.");
-      return;
-    }
-    if (!catatanEvaluasi.trim()) {
-      toast.error("Catatan evaluasi wajib diisi.");
-      return;
-    }
-
-    try {
-      await submitWawancaraMutation.mutateAsync({
-        id: pendaftaran.id,
-        scoring: {
-          skorKomunikasi: Number(skorKomunikasi),
-          skorTeknis: Number(skorTeknis),
-          skorKomitmen: Number(skorKomitmen),
-          nilaiWawancara: Number(nilaiAkhir),
-          statusHasil: statusWawancara,
-          catatanEvaluasi,
-        },
-      });
-
-      appStore.submitWawancaraScoring(
-        pendaftaran.id,
-        Number(skorKomunikasi),
-        Number(skorTeknis),
-        Number(skorKomitmen),
-        statusWawancara,
-        catatanEvaluasi
-      );
-
-      toast.success(
-        `Hasil wawancara berhasil disimpan! Nilai Akhir: ${nilaiAkhir} (${statusWawancara})`
-      );
-      onSuccess?.();
-      onClose();
-    } catch (err: any) {
-      toast.error(err.message || "Gagal menyimpan hasil penilaian wawancara.");
-    }
-  };
 
   return (
     <>
@@ -153,7 +159,14 @@ export const WawancaraModal: React.FC<WawancaraModalProps> = ({
                 </div>
               </div>
 
-              <form onSubmit={handleSubmit}>
+              <form
+                id="wawancaraForm"
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  form.handleSubmit();
+                }}
+              >
                 <div className="card border-0 shadow-sm mb-4">
                   <div className="card-header bg-white fw-bold text-primary border-bottom">
                     <i className="bi bi-clipboard-check me-2"></i>Seksi 1: Input Skor Penilaian
@@ -162,75 +175,137 @@ export const WawancaraModal: React.FC<WawancaraModalProps> = ({
                   <div className="card-body bg-white">
                     <div className="row g-3">
                       <div className="col-md-6">
-                        <label className="form-label small fw-semibold">
-                          Komunikasi & Sikap (30%)
-                        </label>
-                        <input
-                          type="number"
-                          className="form-control"
-                          placeholder="0 - 100"
-                          min={0}
-                          max={100}
-                          value={skorKomunikasi}
-                          onChange={(e) => {
-                            const val = e.target.value;
-                            setSkorKomunikasi(
-                              val === "" ? "" : Math.max(0, Math.min(100, Number(val)))
-                            );
-                          }}
-                          required
-                        />
+                        <form.Field name="skorKomunikasi">
+                          {(field) => (
+                            <div>
+                              <label htmlFor={field.name} className="form-label small fw-semibold">
+                                Komunikasi & Sikap (30%)
+                              </label>
+                              <input
+                                id={field.name}
+                                name={field.name}
+                                type="number"
+                                className={`form-control ${field.state.meta.errors.length ? "is-invalid" : ""}`}
+                                placeholder="0 - 100"
+                                min={0}
+                                max={100}
+                                value={field.state.value}
+                                onBlur={field.handleBlur}
+                                onChange={(e) => {
+                                  const val = e.target.value;
+                                  field.handleChange(
+                                    val === "" ? 0 : Math.max(0, Math.min(100, Number(val)))
+                                  );
+                                }}
+                              />
+                              {field.state.meta.errors.map((error) => (
+                                <div
+                                  key={String((error as any)?.message ?? error)}
+                                  className="invalid-feedback d-block"
+                                >
+                                  {(error as any)?.message ?? String(error)}
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </form.Field>
                       </div>
+
                       <div className="col-md-6">
-                        <label className="form-label small fw-semibold">
-                          Pemahaman Teknis & Motivasi (40%)
-                        </label>
-                        <input
-                          type="number"
-                          className="form-control"
-                          placeholder="0 - 100"
-                          min={0}
-                          max={100}
-                          value={skorTeknis}
-                          onChange={(e) => {
-                            const val = e.target.value;
-                            setSkorTeknis(
-                              val === "" ? "" : Math.max(0, Math.min(100, Number(val)))
-                            );
-                          }}
-                          required
-                        />
+                        <form.Field name="skorTeknis">
+                          {(field) => (
+                            <div>
+                              <label htmlFor={field.name} className="form-label small fw-semibold">
+                                Pemahaman Teknis & Motivasi (40%)
+                              </label>
+                              <input
+                                id={field.name}
+                                name={field.name}
+                                type="number"
+                                className={`form-control ${field.state.meta.errors.length ? "is-invalid" : ""}`}
+                                placeholder="0 - 100"
+                                min={0}
+                                max={100}
+                                value={field.state.value}
+                                onBlur={field.handleBlur}
+                                onChange={(e) => {
+                                  const val = e.target.value;
+                                  field.handleChange(
+                                    val === "" ? 0 : Math.max(0, Math.min(100, Number(val)))
+                                  );
+                                }}
+                              />
+                              {field.state.meta.errors.map((error) => (
+                                <div
+                                  key={String((error as any)?.message ?? error)}
+                                  className="invalid-feedback d-block"
+                                >
+                                  {(error as any)?.message ?? String(error)}
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </form.Field>
                       </div>
+
                       <div className="col-md-6">
-                        <label className="form-label small fw-semibold">
-                          Komitmen & Kehadiran Pelatihan (30%)
-                        </label>
-                        <input
-                          type="number"
-                          className="form-control"
-                          placeholder="0 - 100"
-                          min={0}
-                          max={100}
-                          value={skorKomitmen}
-                          onChange={(e) => {
-                            const val = e.target.value;
-                            setSkorKomitmen(
-                              val === "" ? "" : Math.max(0, Math.min(100, Number(val)))
-                            );
-                          }}
-                          required
-                        />
+                        <form.Field name="skorKomitmen">
+                          {(field) => (
+                            <div>
+                              <label htmlFor={field.name} className="form-label small fw-semibold">
+                                Komitmen & Kehadiran Pelatihan (30%)
+                              </label>
+                              <input
+                                id={field.name}
+                                name={field.name}
+                                type="number"
+                                className={`form-control ${field.state.meta.errors.length ? "is-invalid" : ""}`}
+                                placeholder="0 - 100"
+                                min={0}
+                                max={100}
+                                value={field.state.value}
+                                onBlur={field.handleBlur}
+                                onChange={(e) => {
+                                  const val = e.target.value;
+                                  field.handleChange(
+                                    val === "" ? 0 : Math.max(0, Math.min(100, Number(val)))
+                                  );
+                                }}
+                              />
+                              {field.state.meta.errors.map((error) => (
+                                <div
+                                  key={String((error as any)?.message ?? error)}
+                                  className="invalid-feedback d-block"
+                                >
+                                  {(error as any)?.message ?? String(error)}
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </form.Field>
                       </div>
+
                       <div className="col-md-6">
                         <label className="form-label small fw-semibold text-primary">
                           Nilai Akhir (Kalkulasi Otomatis)
                         </label>
-                        <input
-                          type="text"
-                          className="form-control fw-bold bg-light border-primary text-primary fs-5"
-                          value={nilaiAkhir}
-                          readOnly
-                        />
+                        <form.Subscribe
+                          selector={(state) => {
+                            const k = Number(state.values.skorKomunikasi) || 0;
+                            const t = Number(state.values.skorTeknis) || 0;
+                            const m = Number(state.values.skorKomitmen) || 0;
+                            return (k * 0.3 + t * 0.4 + m * 0.3).toFixed(2);
+                          }}
+                        >
+                          {(nilaiAkhir) => (
+                            <input
+                              type="text"
+                              className="form-control fw-bold bg-light border-primary text-primary fs-5"
+                              value={nilaiAkhir}
+                              readOnly
+                            />
+                          )}
+                        </form.Subscribe>
                       </div>
                     </div>
                   </div>
@@ -243,34 +318,59 @@ export const WawancaraModal: React.FC<WawancaraModalProps> = ({
                   <div className="card-body bg-white">
                     <div className="row g-3">
                       <div className="col-12">
-                        <label className="form-label fw-bold">
-                          Status Wawancara <span className="text-danger">*</span>
-                        </label>
-                        <select
-                          className="form-select form-select-lg border-primary"
-                          value={statusWawancara}
-                          onChange={(e) =>
-                            setStatusWawancara(e.target.value as "Lulus" | "Tidak Lulus")
-                          }
-                          required
-                        >
-                          <option value="Lulus">Lulus Wawancara</option>
-                          <option value="Tidak Lulus">Tidak Lulus Wawancara</option>
-                        </select>
+                        <form.Field name="statusHasil">
+                          {(field) => (
+                            <div>
+                              <label htmlFor={field.name} className="form-label fw-bold">
+                                Status Wawancara <span className="text-danger">*</span>
+                              </label>
+                              <select
+                                id={field.name}
+                                name={field.name}
+                                className="form-select form-select-lg border-primary"
+                                value={field.state.value}
+                                onBlur={field.handleBlur}
+                                onChange={(e) =>
+                                  field.handleChange(e.target.value as "Lulus" | "Tidak Lulus")
+                                }
+                              >
+                                <option value="Lulus">Lulus Wawancara</option>
+                                <option value="Tidak Lulus">Tidak Lulus Wawancara</option>
+                              </select>
+                            </div>
+                          )}
+                        </form.Field>
                       </div>
+
                       <div className="col-12">
-                        <label className="form-label fw-bold">
-                          Catatan / Executive Summary Evaluasi{" "}
-                          <span className="text-danger">*</span>
-                        </label>
-                        <textarea
-                          className="form-control"
-                          rows={3}
-                          placeholder="Tuliskan catatan hasil wawancara, kelebihan, atau alasan keputusan..."
-                          value={catatanEvaluasi}
-                          onChange={(e) => setCatatanEvaluasi(e.target.value)}
-                          required
-                        />
+                        <form.Field name="catatanEvaluasi">
+                          {(field) => (
+                            <div>
+                              <label htmlFor={field.name} className="form-label fw-bold">
+                                Catatan / Executive Summary Evaluasi{" "}
+                                <span className="text-danger">*</span>
+                              </label>
+                              <textarea
+                                id={field.name}
+                                name={field.name}
+                                className={`form-control ${field.state.meta.errors.length ? "is-invalid" : ""}`}
+                                rows={3}
+                                placeholder="Tuliskan catatan hasil wawancara, kelebihan, atau alasan keputusan..."
+                                value={field.state.value}
+                                onBlur={field.handleBlur}
+                                onChange={(e) => field.handleChange(e.target.value)}
+                              />
+                              {field.state.meta.errors.map((error) => (
+                                <div
+                                  key={String((error as any)?.message ?? error)}
+                                  className="invalid-feedback d-block"
+                                >
+                                  {(error as any)?.message ?? String(error)}
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </form.Field>
                       </div>
                     </div>
                   </div>
@@ -282,13 +382,25 @@ export const WawancaraModal: React.FC<WawancaraModalProps> = ({
               <button type="button" className="btn btn-secondary" onClick={onClose}>
                 <i className="bi bi-x-circle me-1"></i>Batal
               </button>
-              <button
-                type="button"
-                className="btn btn-success px-4 fw-bold"
-                onClick={handleSubmit}
+              <form.Subscribe
+                selector={(state) => ({
+                  isSubmitting: state.isSubmitting,
+                })}
               >
-                <i className="bi bi-send-check me-1"></i>Submit Hasil Wawancara
-              </button>
+                {({ isSubmitting }) => (
+                  <button
+                    type="submit"
+                    form="wawancaraForm"
+                    disabled={isSubmitting || submitWawancaraMutation.isPending}
+                    className="btn btn-success px-4 fw-bold"
+                  >
+                    <i className="bi bi-send-check me-1"></i>
+                    {isSubmitting || submitWawancaraMutation.isPending
+                      ? "Menyimpan..."
+                      : "Submit Hasil Wawancara"}
+                  </button>
+                )}
+              </form.Subscribe>
             </div>
           </div>
         </div>

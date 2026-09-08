@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from "react";
+import { useForm } from "@tanstack/react-form";
 import { toast } from "sonner";
+import { z } from "zod";
 import { appStore } from "@/lib/store";
 import { useSubmitVerifikasiMutation } from "@/hooks/use-transaksi-queries";
 import type { PendaftaranRecord } from "@/types";
@@ -12,6 +14,11 @@ interface VerifikasiModalProps {
   onSuccess?: () => void;
 }
 
+const verifikasiSchema = z.object({
+  statusKeputusan: z.enum(["disetujui", "revisi", "ditolak"]),
+  catatanVerifikator: z.string().min(1, "Catatan verifikator wajib diisi."),
+});
+
 export const VerifikasiModal: React.FC<VerifikasiModalProps> = ({
   isOpen,
   onClose,
@@ -20,14 +27,64 @@ export const VerifikasiModal: React.FC<VerifikasiModalProps> = ({
   onSuccess,
 }) => {
   const [activeTab, setActiveTab] = useState<1 | 2 | 3 | 4>(1);
-  const [statusKeputusan, setStatusKeputusan] = useState<"disetujui" | "revisi" | "ditolak">("disetujui");
-  const [catatanVerifikator, setCatatanVerifikator] = useState("");
   const submitVerifikasiMutation = useSubmitVerifikasiMutation();
 
   // Document checklist state: mapping of persyaratanId to { isSesuai, catatanPerbaikan }
   const [docChecks, setDocChecks] = useState<
     Record<string, { isSesuai: boolean; catatanPerbaikan: string }>
   >({});
+
+  const form = useForm({
+    defaultValues: {
+      statusKeputusan: (pendaftaran?.verifikasi?.statusKeputusan ?? "disetujui") as
+        | "disetujui"
+        | "revisi"
+        | "ditolak",
+      catatanVerifikator: pendaftaran?.verifikasi?.catatanVerifikator ?? "",
+    },
+    validators: {
+      onSubmit: verifikasiSchema,
+    },
+    onSubmit: async ({ value }) => {
+      if (!pendaftaran) return;
+
+      const checklistArray = Object.entries(docChecks).map(([persyaratanId, val]) => ({
+        persyaratanId,
+        isSesuai: val.isSesuai,
+        catatanPerbaikan: val.catatanPerbaikan,
+      }));
+
+      try {
+        await submitVerifikasiMutation.mutateAsync({
+          id: pendaftaran.id,
+          decision: {
+            statusKeputusan: value.statusKeputusan,
+            catatanVerifikator: value.catatanVerifikator,
+            catatanRevisi: value.catatanVerifikator,
+            checklistKtp: docChecks["req-ktp"]?.isSesuai ?? true,
+            checklistKk: docChecks["req-kk"]?.isSesuai ?? true,
+            checklistIjazah: docChecks["req-ijazah"]?.isSesuai ?? true,
+            checklistRekomendasi: docChecks["req-rekom"]?.isSesuai ?? true,
+          },
+        });
+
+        appStore.submitVerifikasiDecision(
+          pendaftaran.id,
+          value.statusKeputusan,
+          value.catatanVerifikator,
+          checklistArray
+        );
+
+        toast.success(
+          `Keputusan verifikasi berhasil disimpan: Status ${value.statusKeputusan.toUpperCase()}`
+        );
+        onSuccess?.();
+        onClose();
+      } catch (err: any) {
+        toast.error(err.message || "Gagal menyimpan keputusan verifikasi.");
+      }
+    },
+  });
 
   useEffect(() => {
     if (pendaftaran) {
@@ -41,13 +98,18 @@ export const VerifikasiModal: React.FC<VerifikasiModalProps> = ({
       setDocChecks(initialChecks);
 
       if (pendaftaran.verifikasi?.statusKeputusan) {
-        setStatusKeputusan(
-          pendaftaran.verifikasi.statusKeputusan as "disetujui" | "revisi" | "ditolak"
-        );
-        setCatatanVerifikator(pendaftaran.verifikasi.catatanVerifikator || "");
+        form.reset({
+          statusKeputusan: pendaftaran.verifikasi.statusKeputusan as
+            | "disetujui"
+            | "revisi"
+            | "ditolak",
+          catatanVerifikator: pendaftaran.verifikasi.catatanVerifikator || "",
+        });
       } else {
-        setStatusKeputusan("disetujui");
-        setCatatanVerifikator("");
+        form.reset({
+          statusKeputusan: "disetujui",
+          catatanVerifikator: "",
+        });
       }
     }
   }, [pendaftaran]);
@@ -67,8 +129,8 @@ export const VerifikasiModal: React.FC<VerifikasiModalProps> = ({
     }));
 
     // Auto switch decision to "revisi" if any doc is marked not sesuai
-    if (!isSesuai && statusKeputusan === "disetujui") {
-      setStatusKeputusan("revisi");
+    if (!isSesuai && form.getFieldValue("statusKeputusan") === "disetujui") {
+      form.setFieldValue("statusKeputusan", "revisi");
     }
   };
 
@@ -80,49 +142,6 @@ export const VerifikasiModal: React.FC<VerifikasiModalProps> = ({
         catatanPerbaikan,
       },
     }));
-  };
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!pendaftaran) return;
-    if (!catatanVerifikator.trim()) {
-      toast.error("Catatan verifikator wajib diisi.");
-      return;
-    }
-
-    const checklistArray = Object.entries(docChecks).map(([persyaratanId, val]) => ({
-      persyaratanId,
-      isSesuai: val.isSesuai,
-      catatanPerbaikan: val.catatanPerbaikan,
-    }));
-
-    try {
-      await submitVerifikasiMutation.mutateAsync({
-        id: pendaftaran.id,
-        decision: {
-          statusKeputusan,
-          catatanVerifikator,
-          catatanRevisi: catatanVerifikator,
-          checklistKtp: docChecks["req-ktp"]?.isSesuai ?? true,
-          checklistKk: docChecks["req-kk"]?.isSesuai ?? true,
-          checklistIjazah: docChecks["req-ijazah"]?.isSesuai ?? true,
-          checklistRekomendasi: docChecks["req-rekom"]?.isSesuai ?? true,
-        },
-      });
-
-      appStore.submitVerifikasiDecision(
-        pendaftaran.id,
-        statusKeputusan,
-        catatanVerifikator,
-        checklistArray
-      );
-
-      toast.success(`Keputusan verifikasi berhasil disimpan: Status ${statusKeputusan.toUpperCase()}`);
-      onSuccess?.();
-      onClose();
-    } catch (err: any) {
-      toast.error(err.message || "Gagal menyimpan keputusan verifikasi.");
-    }
   };
 
   return (
@@ -457,42 +476,73 @@ export const VerifikasiModal: React.FC<VerifikasiModalProps> = ({
                         <i className="bi bi-gavel me-2"></i>Keputusan Akhir Verifikator
                       </div>
                       <div className="card-body bg-white">
-                        <form onSubmit={handleSubmit}>
+                        <form
+                          id="verifikasiForm"
+                          onSubmit={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            form.handleSubmit();
+                          }}
+                        >
                           <div className="row g-3">
                             <div className="col-md-5">
-                              <label className="form-label fw-bold">
-                                Status Keputusan <span className="text-danger">*</span>
-                              </label>
-                              <select
-                                className="form-select form-select-lg border-primary"
-                                value={statusKeputusan}
-                                onChange={(e) =>
-                                  setStatusKeputusan(
-                                    e.target.value as "disetujui" | "revisi" | "ditolak"
-                                  )
-                                }
-                                required
-                              >
-                                <option value="disetujui">
-                                  Disetujui (Lolos Seleksi Administrasi)
-                                </option>
-                                <option value="revisi">Revisi (Harus Perbaikan Berkas)</option>
-                                <option value="ditolak">Ditolak (Gugur Administrasi)</option>
-                              </select>
+                              <form.Field name="statusKeputusan">
+                                {(field) => (
+                                  <div>
+                                    <label htmlFor={field.name} className="form-label fw-bold">
+                                      Status Keputusan <span className="text-danger">*</span>
+                                    </label>
+                                    <select
+                                      id={field.name}
+                                      name={field.name}
+                                      className="form-select form-select-lg border-primary"
+                                      value={field.state.value}
+                                      onBlur={field.handleBlur}
+                                      onChange={(e) =>
+                                        field.handleChange(
+                                          e.target.value as "disetujui" | "revisi" | "ditolak"
+                                        )
+                                      }
+                                    >
+                                      <option value="disetujui">
+                                        Disetujui (Lolos Seleksi Administrasi)
+                                      </option>
+                                      <option value="revisi">Revisi (Harus Perbaikan Berkas)</option>
+                                      <option value="ditolak">Ditolak (Gugur Administrasi)</option>
+                                    </select>
+                                  </div>
+                                )}
+                              </form.Field>
                             </div>
                             <div className="col-md-7">
-                              <label className="form-label fw-bold">
-                                Catatan Verifikator untuk Peserta{" "}
-                                <span className="text-danger">*</span>
-                              </label>
-                              <textarea
-                                className="form-control"
-                                rows={3}
-                                placeholder="Tuliskan alasan keputusan atau petunjuk perbaikan berkas secara jelas..."
-                                value={catatanVerifikator}
-                                onChange={(e) => setCatatanVerifikator(e.target.value)}
-                                required
-                              />
+                              <form.Field name="catatanVerifikator">
+                                {(field) => (
+                                  <div>
+                                    <label htmlFor={field.name} className="form-label fw-bold">
+                                      Catatan Verifikator untuk Peserta{" "}
+                                      <span className="text-danger">*</span>
+                                    </label>
+                                    <textarea
+                                      id={field.name}
+                                      name={field.name}
+                                      className={`form-control ${field.state.meta.errors.length ? "is-invalid" : ""}`}
+                                      rows={3}
+                                      placeholder="Tuliskan alasan keputusan atau petunjuk perbaikan berkas secara jelas..."
+                                      value={field.state.value}
+                                      onBlur={field.handleBlur}
+                                      onChange={(e) => field.handleChange(e.target.value)}
+                                    />
+                                    {field.state.meta.errors.map((error) => (
+                                      <div
+                                        key={error ? (typeof error === "string" ? error : error.message) : ""}
+                                        className="invalid-feedback d-block"
+                                      >
+                                        {error ? (typeof error === "string" ? error : error.message) : ""}
+                                      </div>
+                                    ))}
+                                  </div>
+                                )}
+                              </form.Field>
                             </div>
                           </div>
                         </form>
@@ -508,13 +558,25 @@ export const VerifikasiModal: React.FC<VerifikasiModalProps> = ({
                 <i className="bi bi-x-circle me-1"></i>Tutup
               </button>
               <div>
-                <button
-                  type="button"
-                  className="btn btn-success px-4 fw-bold"
-                  onClick={handleSubmit}
+                <form.Subscribe
+                  selector={(state) => ({
+                    isSubmitting: state.isSubmitting,
+                  })}
                 >
-                  <i className="bi bi-send-check me-1"></i>Submit Keputusan Verifikasi
-                </button>
+                  {({ isSubmitting }) => (
+                    <button
+                      type="submit"
+                      form="verifikasiForm"
+                      disabled={isSubmitting || submitVerifikasiMutation.isPending}
+                      className="btn btn-success px-4 fw-bold"
+                    >
+                      <i className="bi bi-send-check me-1"></i>
+                      {isSubmitting || submitVerifikasiMutation.isPending
+                        ? "Menyimpan..."
+                        : "Submit Keputusan Verifikasi"}
+                    </button>
+                  )}
+                </form.Subscribe>
               </div>
             </div>
           </div>

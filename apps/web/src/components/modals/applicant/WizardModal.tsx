@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from "react";
+import { useForm } from "@tanstack/react-form";
 import { toast } from "sonner";
+import { z } from "zod";
 import { appStore } from "@/lib/store";
 import {
   useSaveStep1Mutation,
@@ -8,7 +10,7 @@ import {
   useSubmitApplicationMutation,
 } from "@/hooks/use-transaksi-queries";
 import { useUploadDokumenMutation } from "@/hooks/use-dokumen-mutations";
-import type { BiodataData, DokumenUploadItem, PendaftaranRecord, PendidikanData } from "@/types";
+import type { DokumenUploadItem, PendaftaranRecord, BiodataData, PendidikanData } from "@/types";
 
 interface WizardModalProps {
   isOpen: boolean;
@@ -16,6 +18,38 @@ interface WizardModalProps {
   pendaftaran: PendaftaranRecord;
   onSubmitted?: () => void;
 }
+
+const step1Schema = z.object({
+  nik: z.string().regex(/^\d{16}$/, "NIK harus 16 digit angka."),
+  namaLengkap: z.string().min(3, "Nama lengkap wajib diisi minimal 3 karakter."),
+  tempatLahir: z.string().min(1, "Tempat lahir wajib diisi."),
+  tglLahir: z.string().min(1, "Tanggal lahir wajib diisi."),
+  jenisKelamin: z.enum(["L", "P", ""]).refine((val): val is "L" | "P" => val === "L" || val === "P", {
+    message: "Jenis kelamin wajib dipilih.",
+  }),
+  alamat: z.string().min(10, "Alamat domisili minimal 10 karakter."),
+  provinsi: z.string().min(1, "Provinsi wajib dipilih."),
+  kabupatenKota: z.string().min(1, "Kabupaten/Kota wajib dipilih."),
+  kecamatan: z.string().min(1, "Kecamatan wajib dipilih."),
+  kelurahan: z.string().min(1, "Kelurahan wajib dipilih."),
+  noHp: z.string().min(1, "Nomor HP wajib diisi."),
+  email: z.string().email("Format email tidak valid."),
+});
+
+const step2Schema = z.object({
+  pendidikanTerakhir: z.string().min(1, "Jenjang pendidikan wajib dipilih."),
+  namaInstansi: z.string().min(1, "Nama instansi wajib diisi."),
+  jurusan: z.string().min(1, "Jurusan wajib diisi."),
+  pekerjaanSaatIni: z.string().min(1, "Pekerjaan saat ini wajib diisi."),
+});
+
+const wizardSchema = z.object({
+  biodata: step1Schema,
+  pendidikan: step2Schema,
+  pernyataanSah: z.boolean().refine((val) => val === true, {
+    message: "Anda wajib mencentang pernyataan keabsahan data.",
+  }),
+});
 
 export const WizardModal: React.FC<WizardModalProps> = ({
   isOpen,
@@ -34,30 +68,6 @@ export const WizardModal: React.FC<WizardModalProps> = ({
   const saveStep3Mutation = useSaveStep3Mutation();
   const submitApplicationMutation = useSubmitApplicationMutation();
   const uploadDokumenMutation = useUploadDokumenMutation();
-
-  // Form State Step 1
-  const [biodata, setBiodata] = useState<BiodataData>({
-    nik: pendaftaran.biodata?.nik || pendaftaran.userNik || "",
-    namaLengkap: pendaftaran.biodata?.namaLengkap || pendaftaran.userName || "",
-    tempatLahir: pendaftaran.biodata?.tempatLahir || "",
-    tglLahir: pendaftaran.biodata?.tglLahir || "",
-    jenisKelamin: pendaftaran.biodata?.jenisKelamin || "",
-    alamat: pendaftaran.biodata?.alamat || "",
-    provinsi: pendaftaran.biodata?.provinsi || "",
-    kabupatenKota: pendaftaran.biodata?.kabupatenKota || "",
-    kecamatan: pendaftaran.biodata?.kecamatan || "",
-    kelurahan: pendaftaran.biodata?.kelurahan || "",
-    noHp: pendaftaran.biodata?.noHp || "",
-    email: pendaftaran.biodata?.email || "",
-  });
-
-  // Form State Step 2
-  const [pendidikan, setPendidikan] = useState<PendidikanData>({
-    pendidikanTerakhir: pendaftaran.pendidikan?.pendidikanTerakhir || "",
-    namaInstansi: pendaftaran.pendidikan?.namaInstansi || "",
-    jurusan: pendaftaran.pendidikan?.jurusan || "",
-    pekerjaanSaatIni: pendaftaran.pendidikan?.pekerjaanSaatIni || "",
-  });
 
   // Form State Step 3 (Documents)
   const [documents, setDocuments] = useState<DokumenUploadItem[]>(
@@ -99,8 +109,50 @@ export const WizardModal: React.FC<WizardModalProps> = ({
         ]
   );
 
-  // Form State Step 4
-  const [pernyataanSah, setPernyataanSah] = useState(false);
+  const form = useForm({
+    defaultValues: {
+      biodata: {
+        nik: pendaftaran.biodata?.nik || pendaftaran.userNik || "",
+        namaLengkap: pendaftaran.biodata?.namaLengkap || pendaftaran.userName || "",
+        tempatLahir: pendaftaran.biodata?.tempatLahir || "",
+        tglLahir: pendaftaran.biodata?.tglLahir || "",
+        jenisKelamin: (pendaftaran.biodata?.jenisKelamin || "") as "L" | "P" | "",
+        alamat: pendaftaran.biodata?.alamat || "",
+        provinsi: pendaftaran.biodata?.provinsi || "",
+        kabupatenKota: pendaftaran.biodata?.kabupatenKota || "",
+        kecamatan: pendaftaran.biodata?.kecamatan || "",
+        kelurahan: pendaftaran.biodata?.kelurahan || "",
+        noHp: pendaftaran.biodata?.noHp || "",
+        email: pendaftaran.biodata?.email || "",
+      },
+      pendidikan: {
+        pendidikanTerakhir: pendaftaran.pendidikan?.pendidikanTerakhir || "",
+        namaInstansi: pendaftaran.pendidikan?.namaInstansi || "",
+        jurusan: pendaftaran.pendidikan?.jurusan || "",
+        pekerjaanSaatIni: pendaftaran.pendidikan?.pekerjaanSaatIni || "",
+      },
+      pernyataanSah: false,
+    },
+    validators: {
+      onSubmit: wizardSchema,
+    },
+    onSubmit: async ({ value }) => {
+      try {
+        await saveStep1Mutation.mutateAsync({ id: pendaftaran.id, biodata: value.biodata });
+        await saveStep2Mutation.mutateAsync({ id: pendaftaran.id, pendidikan: value.pendidikan });
+        await saveStep3Mutation.mutateAsync({ id: pendaftaran.id, dokumen: documents });
+        await submitApplicationMutation.mutateAsync(pendaftaran.id);
+
+        toast.success(
+          "Pendaftaran berhasil dikirim! Berkas Anda sekarang dalam proses verifikasi administrasi."
+        );
+        onSubmitted?.();
+        onClose();
+      } catch (err: any) {
+        toast.error(err.message || "Gagal mengirim formulir pendaftaran.");
+      }
+    },
+  });
 
   useEffect(() => {
     if (isOpen) {
@@ -111,41 +163,18 @@ export const WizardModal: React.FC<WizardModalProps> = ({
   if (!isOpen) return null;
 
   const validateStep1 = () => {
-    if (!/^\d{16}$/.test(biodata.nik)) {
-      toast.error("NIK harus 16 digit angka.");
-      return false;
-    }
-    if (biodata.namaLengkap.trim().length < 3) {
-      toast.error("Nama lengkap wajib diisi minimal 3 karakter.");
-      return false;
-    }
-    if (!biodata.tempatLahir || !biodata.tglLahir) {
-      toast.error("Tempat dan tanggal lahir wajib diisi.");
-      return false;
-    }
-    if (!biodata.jenisKelamin) {
-      toast.error("Jenis kelamin wajib dipilih.");
-      return false;
-    }
-    if (!biodata.alamat || biodata.alamat.trim().length < 10) {
-      toast.error("Alamat domisili minimal 10 karakter.");
-      return false;
-    }
-    if (!biodata.noHp || !biodata.email.includes("@")) {
-      toast.error("Nomor HP dan email valid wajib diisi.");
+    const parsed = step1Schema.safeParse(form.getFieldValue("biodata"));
+    if (!parsed.success) {
+      toast.error(parsed.error.issues[0]?.message || "Periksa kembali isian Bagian 1.");
       return false;
     }
     return true;
   };
 
   const validateStep2 = () => {
-    if (
-      !pendidikan.pendidikanTerakhir ||
-      !pendidikan.namaInstansi.trim() ||
-      !pendidikan.jurusan.trim() ||
-      !pendidikan.pekerjaanSaatIni.trim()
-    ) {
-      toast.error("Semua bidang riwayat pendidikan & pekerjaan wajib diisi.");
+    const parsed = step2Schema.safeParse(form.getFieldValue("pendidikan"));
+    if (!parsed.success) {
+      toast.error(parsed.error.issues[0]?.message || "Periksa kembali isian Bagian 2.");
       return false;
     }
     return true;
@@ -153,18 +182,26 @@ export const WizardModal: React.FC<WizardModalProps> = ({
 
   const handleNext = async () => {
     if (currentStep === 1) {
-      if (!validateStep1()) return;
+      const parsed = step1Schema.safeParse(form.getFieldValue("biodata"));
+      if (!parsed.success) {
+        toast.error(parsed.error.issues[0]?.message || "Periksa kembali isian Bagian 1.");
+        return;
+      }
       try {
-        await saveStep1Mutation.mutateAsync({ id: pendaftaran.id, biodata });
+        await saveStep1Mutation.mutateAsync({ id: pendaftaran.id, biodata: parsed.data });
         toast.success("Bagian 1 tersimpan otomatis!");
         setCurrentStep(2);
       } catch (err: any) {
         toast.error(err.message || "Gagal menyimpan biodata.");
       }
     } else if (currentStep === 2) {
-      if (!validateStep2()) return;
+      const parsed = step2Schema.safeParse(form.getFieldValue("pendidikan"));
+      if (!parsed.success) {
+        toast.error(parsed.error.issues[0]?.message || "Periksa kembali isian Bagian 2.");
+        return;
+      }
       try {
-        await saveStep2Mutation.mutateAsync({ id: pendaftaran.id, pendidikan });
+        await saveStep2Mutation.mutateAsync({ id: pendaftaran.id, pendidikan: parsed.data });
         toast.success("Bagian 2 tersimpan otomatis!");
         setCurrentStep(3);
       } catch (err: any) {
@@ -189,10 +226,10 @@ export const WizardModal: React.FC<WizardModalProps> = ({
 
   const handleSaveDraft = async () => {
     try {
-      if (currentStep === 1 && validateStep1()) {
-        await saveStep1Mutation.mutateAsync({ id: pendaftaran.id, biodata });
-      } else if (currentStep === 2 && validateStep2()) {
-        await saveStep2Mutation.mutateAsync({ id: pendaftaran.id, pendidikan });
+      if (currentStep === 1) {
+        await saveStep1Mutation.mutateAsync({ id: pendaftaran.id, biodata: form.getFieldValue("biodata") as BiodataData });
+      } else if (currentStep === 2) {
+        await saveStep2Mutation.mutateAsync({ id: pendaftaran.id, pendidikan: form.getFieldValue("pendidikan") as PendidikanData });
       } else if (currentStep === 3) {
         await saveStep3Mutation.mutateAsync({ id: pendaftaran.id, dokumen: documents });
       }
@@ -259,29 +296,6 @@ export const WizardModal: React.FC<WizardModalProps> = ({
     } catch (err: any) {
       toast.error(err.message || "Gagal mengunggah berkas ke server.");
       e.target.value = "";
-    }
-  };
-
-  const handleSubmitFinal = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!pernyataanSah) {
-      toast.error("Anda wajib mencentang pernyataan keabsahan data.");
-      return;
-    }
-
-    try {
-      await saveStep1Mutation.mutateAsync({ id: pendaftaran.id, biodata });
-      await saveStep2Mutation.mutateAsync({ id: pendaftaran.id, pendidikan });
-      await saveStep3Mutation.mutateAsync({ id: pendaftaran.id, dokumen: documents });
-      await submitApplicationMutation.mutateAsync(pendaftaran.id);
-
-      toast.success(
-        "Pendaftaran berhasil dikirim! Berkas Anda sekarang dalam proses verifikasi administrasi."
-      );
-      onSubmitted?.();
-      onClose();
-    } catch (err: any) {
-      toast.error(err.message || "Gagal mengirim formulir pendaftaran.");
     }
   };
 
@@ -363,183 +377,379 @@ export const WizardModal: React.FC<WizardModalProps> = ({
                     </h6>
                     <div className="row g-3">
                       <div className="col-md-6">
-                        <label className="form-label">
-                          NIK (Nomor Induk Kependudukan) <span className="text-danger">*</span>
-                        </label>
-                        <input
-                          type="text"
-                          className="form-control"
-                          placeholder="Masukkan 16 digit NIK"
-                          maxLength={16}
-                          value={biodata.nik}
-                          onChange={(e) => setBiodata({ ...biodata, nik: e.target.value })}
-                          required
-                        />
+                        <form.Field name="biodata.nik">
+                          {(field) => (
+                            <div>
+                              <label htmlFor={field.name} className="form-label">
+                                NIK (Nomor Induk Kependudukan) <span className="text-danger">*</span>
+                              </label>
+                              <input
+                                id={field.name}
+                                name={field.name}
+                                type="text"
+                                className={`form-control ${field.state.meta.errors.length ? "is-invalid" : ""}`}
+                                placeholder="Masukkan 16 digit NIK"
+                                maxLength={16}
+                                value={field.state.value}
+                                onBlur={field.handleBlur}
+                                onChange={(e) => field.handleChange(e.target.value)}
+                              />
+                              {field.state.meta.errors.map((error) => (
+                                <div
+                                  key={String((error as any)?.message ?? error)}
+                                  className="invalid-feedback d-block"
+                                >
+                                  {(error as any)?.message ?? String(error)}
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </form.Field>
                       </div>
+
                       <div className="col-md-6">
-                        <label className="form-label">
-                          Nama Lengkap <span className="text-danger">*</span>
-                        </label>
-                        <input
-                          type="text"
-                          className="form-control"
-                          placeholder="Masukkan nama sesuai KTP"
-                          value={biodata.namaLengkap}
-                          onChange={(e) => setBiodata({ ...biodata, namaLengkap: e.target.value })}
-                          required
-                        />
+                        <form.Field name="biodata.namaLengkap">
+                          {(field) => (
+                            <div>
+                              <label htmlFor={field.name} className="form-label">
+                                Nama Lengkap <span className="text-danger">*</span>
+                              </label>
+                              <input
+                                id={field.name}
+                                name={field.name}
+                                type="text"
+                                className={`form-control ${field.state.meta.errors.length ? "is-invalid" : ""}`}
+                                placeholder="Masukkan nama sesuai KTP"
+                                value={field.state.value}
+                                onBlur={field.handleBlur}
+                                onChange={(e) => field.handleChange(e.target.value)}
+                              />
+                              {field.state.meta.errors.map((error) => (
+                                <div
+                                  key={String((error as any)?.message ?? error)}
+                                  className="invalid-feedback d-block"
+                                >
+                                  {(error as any)?.message ?? String(error)}
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </form.Field>
                       </div>
+
                       <div className="col-md-4">
-                        <label className="form-label">
-                          Tempat Lahir <span className="text-danger">*</span>
-                        </label>
-                        <input
-                          type="text"
-                          className="form-control"
-                          placeholder="Kota tempat lahir"
-                          value={biodata.tempatLahir}
-                          onChange={(e) => setBiodata({ ...biodata, tempatLahir: e.target.value })}
-                          required
-                        />
+                        <form.Field name="biodata.tempatLahir">
+                          {(field) => (
+                            <div>
+                              <label htmlFor={field.name} className="form-label">
+                                Tempat Lahir <span className="text-danger">*</span>
+                              </label>
+                              <input
+                                id={field.name}
+                                name={field.name}
+                                type="text"
+                                className={`form-control ${field.state.meta.errors.length ? "is-invalid" : ""}`}
+                                placeholder="Kota tempat lahir"
+                                value={field.state.value}
+                                onBlur={field.handleBlur}
+                                onChange={(e) => field.handleChange(e.target.value)}
+                              />
+                              {field.state.meta.errors.map((error) => (
+                                <div
+                                  key={String((error as any)?.message ?? error)}
+                                  className="invalid-feedback d-block"
+                                >
+                                  {(error as any)?.message ?? String(error)}
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </form.Field>
                       </div>
+
                       <div className="col-md-4">
-                        <label className="form-label">
-                          Tanggal Lahir <span className="text-danger">*</span>
-                        </label>
-                        <input
-                          type="date"
-                          className="form-control"
-                          value={biodata.tglLahir}
-                          onChange={(e) => setBiodata({ ...biodata, tglLahir: e.target.value })}
-                          required
-                        />
+                        <form.Field name="biodata.tglLahir">
+                          {(field) => (
+                            <div>
+                              <label htmlFor={field.name} className="form-label">
+                                Tanggal Lahir <span className="text-danger">*</span>
+                              </label>
+                              <input
+                                id={field.name}
+                                name={field.name}
+                                type="date"
+                                className={`form-control ${field.state.meta.errors.length ? "is-invalid" : ""}`}
+                                value={field.state.value}
+                                onBlur={field.handleBlur}
+                                onChange={(e) => field.handleChange(e.target.value)}
+                              />
+                              {field.state.meta.errors.map((error) => (
+                                <div
+                                  key={String((error as any)?.message ?? error)}
+                                  className="invalid-feedback d-block"
+                                >
+                                  {(error as any)?.message ?? String(error)}
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </form.Field>
                       </div>
+
                       <div className="col-md-4">
-                        <label className="form-label">
-                          Jenis Kelamin <span className="text-danger">*</span>
-                        </label>
-                        <select
-                          className="form-select"
-                          value={biodata.jenisKelamin}
-                          onChange={(e) =>
-                            setBiodata({
-                              ...biodata,
-                              jenisKelamin: e.target.value as "L" | "P" | "",
-                            })
-                          }
-                          required
-                        >
-                          <option value="">Pilih Jenis Kelamin...</option>
-                          <option value="L">Laki-laki</option>
-                          <option value="P">Perempuan</option>
-                        </select>
+                        <form.Field name="biodata.jenisKelamin">
+                          {(field) => (
+                            <div>
+                              <label htmlFor={field.name} className="form-label">
+                                Jenis Kelamin <span className="text-danger">*</span>
+                              </label>
+                              <select
+                                id={field.name}
+                                name={field.name}
+                                className={`form-select ${field.state.meta.errors.length ? "is-invalid" : ""}`}
+                                value={field.state.value}
+                                onBlur={field.handleBlur}
+                                onChange={(e) => field.handleChange(e.target.value as "L" | "P" | "")}
+                              >
+                                <option value="">Pilih Jenis Kelamin...</option>
+                                <option value="L">Laki-laki</option>
+                                <option value="P">Perempuan</option>
+                              </select>
+                              {field.state.meta.errors.map((error) => (
+                                <div
+                                  key={String((error as any)?.message ?? error)}
+                                  className="invalid-feedback d-block"
+                                >
+                                  {(error as any)?.message ?? String(error)}
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </form.Field>
                       </div>
+
                       <div className="col-md-12">
-                        <label className="form-label">
-                          Alamat Domisili <span className="text-danger">*</span>
-                        </label>
-                        <textarea
-                          className="form-control"
-                          rows={2}
-                          placeholder="Nama jalan, RT/RW, no. rumah"
-                          value={biodata.alamat}
-                          onChange={(e) => setBiodata({ ...biodata, alamat: e.target.value })}
-                          required
-                        />
+                        <form.Field name="biodata.alamat">
+                          {(field) => (
+                            <div>
+                              <label htmlFor={field.name} className="form-label">
+                                Alamat Domisili <span className="text-danger">*</span>
+                              </label>
+                              <textarea
+                                id={field.name}
+                                name={field.name}
+                                className={`form-control ${field.state.meta.errors.length ? "is-invalid" : ""}`}
+                                rows={2}
+                                placeholder="Nama jalan, RT/RW, no. rumah"
+                                value={field.state.value}
+                                onBlur={field.handleBlur}
+                                onChange={(e) => field.handleChange(e.target.value)}
+                              />
+                              {field.state.meta.errors.map((error) => (
+                                <div
+                                  key={String((error as any)?.message ?? error)}
+                                  className="invalid-feedback d-block"
+                                >
+                                  {(error as any)?.message ?? String(error)}
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </form.Field>
                       </div>
+
                       <div className="col-md-3">
-                        <label className="form-label">
-                          Provinsi <span className="text-danger">*</span>
-                        </label>
-                        <select
-                          className="form-select"
-                          value={biodata.provinsi}
-                          onChange={(e) => setBiodata({ ...biodata, provinsi: e.target.value })}
-                          required
-                        >
-                          <option value="">Pilih Provinsi...</option>
-                          <option value="Jawa Barat">Jawa Barat</option>
-                          <option value="DKI Jakarta">DKI Jakarta</option>
-                          <option value="Jawa Tengah">Jawa Tengah</option>
-                          <option value="Jawa Timur">Jawa Timur</option>
-                        </select>
+                        <form.Field name="biodata.provinsi">
+                          {(field) => (
+                            <div>
+                              <label htmlFor={field.name} className="form-label">
+                                Provinsi <span className="text-danger">*</span>
+                              </label>
+                              <select
+                                id={field.name}
+                                name={field.name}
+                                className={`form-select ${field.state.meta.errors.length ? "is-invalid" : ""}`}
+                                value={field.state.value}
+                                onBlur={field.handleBlur}
+                                onChange={(e) => field.handleChange(e.target.value)}
+                              >
+                                <option value="">Pilih Provinsi...</option>
+                                <option value="Jawa Barat">Jawa Barat</option>
+                                <option value="DKI Jakarta">DKI Jakarta</option>
+                                <option value="Jawa Tengah">Jawa Tengah</option>
+                                <option value="Jawa Timur">Jawa Timur</option>
+                              </select>
+                              {field.state.meta.errors.map((error) => (
+                                <div
+                                  key={String((error as any)?.message ?? error)}
+                                  className="invalid-feedback d-block"
+                                >
+                                  {(error as any)?.message ?? String(error)}
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </form.Field>
                       </div>
+
                       <div className="col-md-3">
-                        <label className="form-label">
-                          Kabupaten/Kota <span className="text-danger">*</span>
-                        </label>
-                        <select
-                          className="form-select"
-                          value={biodata.kabupatenKota}
-                          onChange={(e) =>
-                            setBiodata({ ...biodata, kabupatenKota: e.target.value })
-                          }
-                          required
-                        >
-                          <option value="">Pilih Kabupaten/Kota...</option>
-                          <option value="Kota Bandung">Kota Bandung</option>
-                          <option value="Kab. Bogor">Kab. Bogor</option>
-                          <option value="Kota Jakarta Pusat">Kota Jakarta Pusat</option>
-                          <option value="Kota Surabaya">Kota Surabaya</option>
-                        </select>
+                        <form.Field name="biodata.kabupatenKota">
+                          {(field) => (
+                            <div>
+                              <label htmlFor={field.name} className="form-label">
+                                Kabupaten/Kota <span className="text-danger">*</span>
+                              </label>
+                              <select
+                                id={field.name}
+                                name={field.name}
+                                className={`form-select ${field.state.meta.errors.length ? "is-invalid" : ""}`}
+                                value={field.state.value}
+                                onBlur={field.handleBlur}
+                                onChange={(e) => field.handleChange(e.target.value)}
+                              >
+                                <option value="">Pilih Kabupaten/Kota...</option>
+                                <option value="Kota Bandung">Kota Bandung</option>
+                                <option value="Kab. Bogor">Kab. Bogor</option>
+                                <option value="Kota Jakarta Pusat">Kota Jakarta Pusat</option>
+                                <option value="Kota Surabaya">Kota Surabaya</option>
+                              </select>
+                              {field.state.meta.errors.map((error) => (
+                                <div
+                                  key={String((error as any)?.message ?? error)}
+                                  className="invalid-feedback d-block"
+                                >
+                                  {(error as any)?.message ?? String(error)}
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </form.Field>
                       </div>
+
                       <div className="col-md-3">
-                        <label className="form-label">
-                          Kecamatan <span className="text-danger">*</span>
-                        </label>
-                        <select
-                          className="form-select"
-                          value={biodata.kecamatan}
-                          onChange={(e) => setBiodata({ ...biodata, kecamatan: e.target.value })}
-                          required
-                        >
-                          <option value="">Pilih Kecamatan...</option>
-                          <option value="Coblong">Coblong</option>
-                          <option value="Cicendo">Cicendo</option>
-                          <option value="Sukasari">Sukasari</option>
-                        </select>
+                        <form.Field name="biodata.kecamatan">
+                          {(field) => (
+                            <div>
+                              <label htmlFor={field.name} className="form-label">
+                                Kecamatan <span className="text-danger">*</span>
+                              </label>
+                              <select
+                                id={field.name}
+                                name={field.name}
+                                className={`form-select ${field.state.meta.errors.length ? "is-invalid" : ""}`}
+                                value={field.state.value}
+                                onBlur={field.handleBlur}
+                                onChange={(e) => field.handleChange(e.target.value)}
+                              >
+                                <option value="">Pilih Kecamatan...</option>
+                                <option value="Coblong">Coblong</option>
+                                <option value="Cicendo">Cicendo</option>
+                                <option value="Sukasari">Sukasari</option>
+                              </select>
+                              {field.state.meta.errors.map((error) => (
+                                <div
+                                  key={String((error as any)?.message ?? error)}
+                                  className="invalid-feedback d-block"
+                                >
+                                  {(error as any)?.message ?? String(error)}
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </form.Field>
                       </div>
+
                       <div className="col-md-3">
-                        <label className="form-label">
-                          Kelurahan <span className="text-danger">*</span>
-                        </label>
-                        <select
-                          className="form-select"
-                          value={biodata.kelurahan}
-                          onChange={(e) => setBiodata({ ...biodata, kelurahan: e.target.value })}
-                          required
-                        >
-                          <option value="">Pilih Kelurahan...</option>
-                          <option value="Dago">Dago</option>
-                          <option value="Pasirkaliki">Pasirkaliki</option>
-                          <option value="Lebakgede">Lebakgede</option>
-                        </select>
+                        <form.Field name="biodata.kelurahan">
+                          {(field) => (
+                            <div>
+                              <label htmlFor={field.name} className="form-label">
+                                Kelurahan <span className="text-danger">*</span>
+                              </label>
+                              <select
+                                id={field.name}
+                                name={field.name}
+                                className={`form-select ${field.state.meta.errors.length ? "is-invalid" : ""}`}
+                                value={field.state.value}
+                                onBlur={field.handleBlur}
+                                onChange={(e) => field.handleChange(e.target.value)}
+                              >
+                                <option value="">Pilih Kelurahan...</option>
+                                <option value="Dago">Dago</option>
+                                <option value="Pasirkaliki">Pasirkaliki</option>
+                                <option value="Lebakgede">Lebakgede</option>
+                              </select>
+                              {field.state.meta.errors.map((error) => (
+                                <div
+                                  key={String((error as any)?.message ?? error)}
+                                  className="invalid-feedback d-block"
+                                >
+                                  {(error as any)?.message ?? String(error)}
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </form.Field>
                       </div>
+
                       <div className="col-md-6">
-                        <label className="form-label">
-                          No. HP / WhatsApp <span className="text-danger">*</span>
-                        </label>
-                        <input
-                          type="tel"
-                          className="form-control"
-                          placeholder="Contoh: 081234567890"
-                          value={biodata.noHp}
-                          onChange={(e) => setBiodata({ ...biodata, noHp: e.target.value })}
-                          required
-                        />
+                        <form.Field name="biodata.noHp">
+                          {(field) => (
+                            <div>
+                              <label htmlFor={field.name} className="form-label">
+                                No. HP / WhatsApp <span className="text-danger">*</span>
+                              </label>
+                              <input
+                                id={field.name}
+                                name={field.name}
+                                type="tel"
+                                className={`form-control ${field.state.meta.errors.length ? "is-invalid" : ""}`}
+                                placeholder="Contoh: 081234567890"
+                                value={field.state.value}
+                                onBlur={field.handleBlur}
+                                onChange={(e) => field.handleChange(e.target.value)}
+                              />
+                              {field.state.meta.errors.map((error) => (
+                                <div
+                                  key={String((error as any)?.message ?? error)}
+                                  className="invalid-feedback d-block"
+                                >
+                                  {(error as any)?.message ?? String(error)}
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </form.Field>
                       </div>
+
                       <div className="col-md-6">
-                        <label className="form-label">
-                          Alamat Email <span className="text-danger">*</span>
-                        </label>
-                        <input
-                          type="email"
-                          className="form-control"
-                          placeholder="nama@email.com"
-                          value={biodata.email}
-                          onChange={(e) => setBiodata({ ...biodata, email: e.target.value })}
-                          required
-                        />
+                        <form.Field name="biodata.email">
+                          {(field) => (
+                            <div>
+                              <label htmlFor={field.name} className="form-label">
+                                Alamat Email <span className="text-danger">*</span>
+                              </label>
+                              <input
+                                id={field.name}
+                                name={field.name}
+                                type="email"
+                                className={`form-control ${field.state.meta.errors.length ? "is-invalid" : ""}`}
+                                placeholder="nama@email.com"
+                                value={field.state.value}
+                                onBlur={field.handleBlur}
+                                onChange={(e) => field.handleChange(e.target.value)}
+                              />
+                              {field.state.meta.errors.map((error) => (
+                                <div
+                                  key={String((error as any)?.message ?? error)}
+                                  className="invalid-feedback d-block"
+                                >
+                                  {(error as any)?.message ?? String(error)}
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </form.Field>
                       </div>
                     </div>
                   </div>
@@ -553,77 +763,124 @@ export const WizardModal: React.FC<WizardModalProps> = ({
                     </h6>
                     <div className="row g-3">
                       <div className="col-md-6">
-                        <label className="form-label">
-                          Pendidikan Terakhir <span className="text-danger">*</span>
-                        </label>
-                        <select
-                          className="form-select"
-                          value={pendidikan.pendidikanTerakhir}
-                          onChange={(e) =>
-                            setPendidikan({
-                              ...pendidikan,
-                              pendidikanTerakhir: e.target.value,
-                            })
-                          }
-                          required
-                        >
-                          <option value="">Pilih Jenjang Pendidikan...</option>
-                          <option value="SMA/SMK Sederajat">SMA/SMK Sederajat</option>
-                          <option value="D3 / D4">D3 / D4</option>
-                          <option value="S1 (Sarjana)">S1 (Sarjana)</option>
-                          <option value="S2 / S3">S2 / S3</option>
-                        </select>
+                        <form.Field name="pendidikan.pendidikanTerakhir">
+                          {(field) => (
+                            <div>
+                              <label htmlFor={field.name} className="form-label">
+                                Pendidikan Terakhir <span className="text-danger">*</span>
+                              </label>
+                              <select
+                                id={field.name}
+                                name={field.name}
+                                className={`form-select ${field.state.meta.errors.length ? "is-invalid" : ""}`}
+                                value={field.state.value}
+                                onBlur={field.handleBlur}
+                                onChange={(e) => field.handleChange(e.target.value)}
+                              >
+                                <option value="">Pilih Jenjang Pendidikan...</option>
+                                <option value="SMA/SMK Sederajat">SMA/SMK Sederajat</option>
+                                <option value="D3 / D4">D3 / D4</option>
+                                <option value="S1 (Sarjana)">S1 (Sarjana)</option>
+                                <option value="S2 / S3">S2 / S3</option>
+                              </select>
+                              {field.state.meta.errors.map((error) => (
+                                <div
+                                  key={String((error as any)?.message ?? error)}
+                                  className="invalid-feedback d-block"
+                                >
+                                  {(error as any)?.message ?? String(error)}
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </form.Field>
                       </div>
                       <div className="col-md-6">
-                        <label className="form-label">
-                          Nama Instansi / Sekolah / Universitas <span className="text-danger">*</span>
-                        </label>
-                        <input
-                          type="text"
-                          className="form-control"
-                          placeholder="Contoh: Universitas Komputer Indonesia"
-                          value={pendidikan.namaInstansi}
-                          onChange={(e) =>
-                            setPendidikan({
-                              ...pendidikan,
-                              namaInstansi: e.target.value,
-                            })
-                          }
-                          required
-                        />
+                        <form.Field name="pendidikan.namaInstansi">
+                          {(field) => (
+                            <div>
+                              <label htmlFor={field.name} className="form-label">
+                                Nama Instansi / Sekolah / Universitas <span className="text-danger">*</span>
+                              </label>
+                              <input
+                                id={field.name}
+                                name={field.name}
+                                type="text"
+                                className={`form-control ${field.state.meta.errors.length ? "is-invalid" : ""}`}
+                                placeholder="Contoh: Universitas Komputer Indonesia"
+                                value={field.state.value}
+                                onBlur={field.handleBlur}
+                                onChange={(e) => field.handleChange(e.target.value)}
+                              />
+                              {field.state.meta.errors.map((error) => (
+                                <div
+                                  key={String((error as any)?.message ?? error)}
+                                  className="invalid-feedback d-block"
+                                >
+                                  {(error as any)?.message ?? String(error)}
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </form.Field>
                       </div>
                       <div className="col-md-6">
-                        <label className="form-label">
-                          Jurusan / Program Studi <span className="text-danger">*</span>
-                        </label>
-                        <input
-                          type="text"
-                          className="form-control"
-                          placeholder="Contoh: Teknik Informatika"
-                          value={pendidikan.jurusan}
-                          onChange={(e) =>
-                            setPendidikan({ ...pendidikan, jurusan: e.target.value })
-                          }
-                          required
-                        />
+                        <form.Field name="pendidikan.jurusan">
+                          {(field) => (
+                            <div>
+                              <label htmlFor={field.name} className="form-label">
+                                Jurusan / Program Studi <span className="text-danger">*</span>
+                              </label>
+                              <input
+                                id={field.name}
+                                name={field.name}
+                                type="text"
+                                className={`form-control ${field.state.meta.errors.length ? "is-invalid" : ""}`}
+                                placeholder="Contoh: Teknik Informatika"
+                                value={field.state.value}
+                                onBlur={field.handleBlur}
+                                onChange={(e) => field.handleChange(e.target.value)}
+                              />
+                              {field.state.meta.errors.map((error) => (
+                                <div
+                                  key={String((error as any)?.message ?? error)}
+                                  className="invalid-feedback d-block"
+                                >
+                                  {(error as any)?.message ?? String(error)}
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </form.Field>
                       </div>
                       <div className="col-md-6">
-                        <label className="form-label">
-                          Pekerjaan Saat Ini <span className="text-danger">*</span>
-                        </label>
-                        <input
-                          type="text"
-                          className="form-control"
-                          placeholder="Contoh: Software Developer / Freelancer"
-                          value={pendidikan.pekerjaanSaatIni}
-                          onChange={(e) =>
-                            setPendidikan({
-                              ...pendidikan,
-                              pekerjaanSaatIni: e.target.value,
-                            })
-                          }
-                          required
-                        />
+                        <form.Field name="pendidikan.pekerjaanSaatIni">
+                          {(field) => (
+                            <div>
+                              <label htmlFor={field.name} className="form-label">
+                                Pekerjaan Saat Ini <span className="text-danger">*</span>
+                              </label>
+                              <input
+                                id={field.name}
+                                name={field.name}
+                                type="text"
+                                className={`form-control ${field.state.meta.errors.length ? "is-invalid" : ""}`}
+                                placeholder="Contoh: Software Developer / Freelancer"
+                                value={field.state.value}
+                                onBlur={field.handleBlur}
+                                onChange={(e) => field.handleChange(e.target.value)}
+                              />
+                              {field.state.meta.errors.map((error) => (
+                                <div
+                                  key={String((error as any)?.message ?? error)}
+                                  className="invalid-feedback d-block"
+                                >
+                                  {(error as any)?.message ?? String(error)}
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </form.Field>
                       </div>
                     </div>
                   </div>
@@ -697,23 +954,32 @@ export const WizardModal: React.FC<WizardModalProps> = ({
                     <h6 className="fw-bold mb-3 text-primary">
                       Bagian 4: Lembar Persetujuan & Pernyataan Keabsahan Data
                     </h6>
-                    <div className="card border mb-3 bg-light">
-                      <div className="card-body small">
-                        <h6 className="fw-bold">Ringkasan Data Pendaftaran:</h6>
-                        <p className="mb-1">
-                          <strong>Program Pelatihan:</strong> {pendaftaran.beasiswaNama}
-                        </p>
-                        <p className="mb-1">
-                          <strong>Nama / NIK:</strong> {biodata.namaLengkap} ({biodata.nik})
-                        </p>
-                        <p className="mb-1">
-                          <strong>Domisili:</strong> {biodata.alamat}, {biodata.kabupatenKota}, {biodata.provinsi}
-                        </p>
-                        <p className="mb-0">
-                          <strong>Pendidikan:</strong> {pendidikan.pendidikanTerakhir} — {pendidikan.namaInstansi} ({pendidikan.jurusan})
-                        </p>
-                      </div>
-                    </div>
+                    <form.Subscribe
+                      selector={(state) => ({
+                        biodata: state.values.biodata,
+                        pendidikan: state.values.pendidikan,
+                      })}
+                    >
+                      {({ biodata: biodataVal, pendidikan: pendidikanVal }) => (
+                        <div className="card border mb-3 bg-light">
+                          <div className="card-body small">
+                            <h6 className="fw-bold">Ringkasan Data Pendaftaran:</h6>
+                            <p className="mb-1">
+                              <strong>Program Pelatihan:</strong> {pendaftaran.beasiswaNama}
+                            </p>
+                            <p className="mb-1">
+                              <strong>Nama / NIK:</strong> {biodataVal.namaLengkap} ({biodataVal.nik})
+                            </p>
+                            <p className="mb-1">
+                              <strong>Domisili:</strong> {biodataVal.alamat}, {biodataVal.kabupatenKota}, {biodataVal.provinsi}
+                            </p>
+                            <p className="mb-0">
+                              <strong>Pendidikan:</strong> {pendidikanVal.pendidikanTerakhir} — {pendidikanVal.namaInstansi} ({pendidikanVal.jurusan})
+                            </p>
+                          </div>
+                        </div>
+                      )}
+                    </form.Subscribe>
 
                     <div className="alert alert-light border">
                       <p className="small mb-0 text-muted">
@@ -721,19 +987,35 @@ export const WizardModal: React.FC<WizardModalProps> = ({
                       </p>
                     </div>
 
-                    <div className="form-check mb-3 mt-3">
-                      <input
-                        className="form-check-input"
-                        type="checkbox"
-                        id="checkSah"
-                        checked={pernyataanSah}
-                        onChange={(e) => setPernyataanSah(e.target.checked)}
-                        required
-                      />
-                      <label className="form-check-label small" htmlFor="checkSah">
-                        Saya menyatakan dengan sesungguhnya bahwa seluruh data dan dokumen yang saya unggah adalah benar, sah, dan milik saya pribadi. Apabila di kemudian hari ditemukan kebohongan, saya bersedia didiskualifikasi dari seleksi pendaftaran.
-                      </label>
-                    </div>
+                    <form.Field name="pernyataanSah">
+                      {(field) => (
+                        <div>
+                          <div className="form-check mb-3 mt-3">
+                            <input
+                              className={`form-check-input ${field.state.meta.errors.length ? "is-invalid" : ""}`}
+                              type="checkbox"
+                              id={field.name}
+                              name={field.name}
+                              checked={field.state.value}
+                              onBlur={field.handleBlur}
+                              onChange={(e) => field.handleChange(e.target.checked)}
+                              required
+                            />
+                            <label className="form-check-label small" htmlFor={field.name}>
+                              Saya menyatakan dengan sesungguhnya bahwa seluruh data dan dokumen yang saya unggah adalah benar, sah, dan milik saya pribadi. Apabila di kemudian hari ditemukan kebohongan, saya bersedia didiskualifikasi dari seleksi pendaftaran.
+                            </label>
+                          </div>
+                          {field.state.meta.errors.map((error) => (
+                            <div
+                              key={String((error as any)?.message ?? error)}
+                              className="invalid-feedback d-block"
+                            >
+                              {(error as any)?.message ?? String(error)}
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </form.Field>
                   </div>
                 )}
               </div>
@@ -763,14 +1045,29 @@ export const WizardModal: React.FC<WizardModalProps> = ({
                     Selanjutnya <i className="bi bi-arrow-right ms-1"></i>
                   </button>
                 ) : (
-                  <button
-                    type="button"
-                    className="btn btn-success"
-                    onClick={handleSubmitFinal}
-                    disabled={!pernyataanSah}
+                  <form.Subscribe
+                    selector={(state) => [state.canSubmit, state.isSubmitting, state.values.pernyataanSah]}
                   >
-                    <i className="bi bi-send me-1"></i> Kirim Pendaftaran (Submit)
-                  </button>
+                    {([canSubmit, isSubmitting, pernyataanSahVal]) => (
+                      <button
+                        type="button"
+                        className="btn btn-success"
+                        onClick={() => form.handleSubmit()}
+                        disabled={!canSubmit || isSubmitting || !pernyataanSahVal}
+                      >
+                        {isSubmitting ? (
+                          <>
+                            <span className="spinner-border spinner-border-sm me-2" />
+                            Mengirim...
+                          </>
+                        ) : (
+                          <>
+                            <i className="bi bi-send me-1"></i> Kirim Pendaftaran (Submit)
+                          </>
+                        )}
+                      </button>
+                    )}
+                  </form.Subscribe>
                 )}
               </div>
             </div>

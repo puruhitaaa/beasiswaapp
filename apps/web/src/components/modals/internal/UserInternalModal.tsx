@@ -1,5 +1,7 @@
-import React, { useState } from "react";
+import React from "react";
+import { useForm } from "@tanstack/react-form";
 import { toast } from "sonner";
+import { z } from "zod";
 import { useCreateInternalUserMutation } from "@/hooks/use-auth-queries";
 
 interface UserInternalModalProps {
@@ -7,46 +9,48 @@ interface UserInternalModalProps {
   onClose: () => void;
 }
 
+const userInternalSchema = z.object({
+  name: z.string().min(1, "Nama lengkap petugas wajib diisi."),
+  email: z.string().email("Format email tidak valid."),
+  password: z.string().min(8, "Kata sandi minimal 8 karakter."),
+  role: z.enum(["verifikator", "interviewer", "admin"]),
+});
+
 export const UserInternalModal: React.FC<UserInternalModalProps> = ({
   isOpen,
   onClose,
 }) => {
-  const [name, setName] = useState("");
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [role, setRole] = useState<"verifikator" | "interviewer" | "admin">("verifikator");
   const createMutation = useCreateInternalUserMutation();
 
+  const form = useForm({
+    defaultValues: {
+      name: "",
+      email: "",
+      password: "",
+      role: "verifikator" as "verifikator" | "interviewer" | "admin",
+    },
+    validators: {
+      onSubmit: userInternalSchema,
+    },
+    onSubmit: async ({ value }) => {
+      try {
+        await createMutation.mutateAsync({
+          name: value.name,
+          email: value.email,
+          password: value.password,
+          role: value.role,
+        });
+
+        toast.success("Akun petugas internal berhasil ditambahkan!");
+        form.reset();
+        onClose();
+      } catch (err: any) {
+        toast.error(err.message || "Gagal menambahkan akun petugas.");
+      }
+    },
+  });
+
   if (!isOpen) return null;
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!name.trim() || !email.includes("@")) {
-      toast.error("Nama dan email valid wajib diisi.");
-      return;
-    }
-    if (!password || password.length < 8) {
-      toast.error("Kata sandi minimal 8 karakter.");
-      return;
-    }
-
-    try {
-      await createMutation.mutateAsync({
-        name,
-        email,
-        password,
-        role,
-      });
-
-      toast.success("Akun petugas internal berhasil ditambahkan!");
-      setName("");
-      setEmail("");
-      setPassword("");
-      onClose();
-    } catch (err: any) {
-      toast.error(err.message || "Gagal menambahkan akun petugas.");
-    }
-  };
 
   return (
     <>
@@ -67,67 +71,144 @@ export const UserInternalModal: React.FC<UserInternalModalProps> = ({
               ></button>
             </div>
             <div className="modal-body">
-              <form onSubmit={handleSubmit}>
-                <div className="mb-3">
-                  <label className="form-label">Nama Lengkap Petugas</label>
-                  <input
-                    type="text"
-                    className="form-control"
-                    placeholder="Contoh: Budi Prasetyo"
-                    value={name}
-                    onChange={(e) => setName(e.target.value)}
-                    required
-                  />
-                </div>
-                <div className="mb-3">
-                  <label className="form-label">Email / NIP Instansi</label>
-                  <input
-                    type="email"
-                    className="form-control"
-                    placeholder="budi@beasiswa.go.id"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    required
-                  />
-                </div>
-                <div className="mb-3">
-                  <label className="form-label">Kata Sandi Akses</label>
-                  <input
-                    type="password"
-                    className="form-control"
-                    placeholder="Minimal 8 karakter"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    required
-                    minLength={8}
-                  />
-                  <div className="form-text">
-                    Kata sandi awal untuk masuk ke sistem.
-                  </div>
-                </div>
-                <div className="mb-3">
-                  <label className="form-label">Role Akses Sistem</label>
-                  <select
-                    className="form-select"
-                    value={role}
-                    onChange={(e) =>
-                      setRole(
-                        e.target.value as "verifikator" | "interviewer" | "admin"
-                      )
-                    }
-                  >
-                    <option value="verifikator">Verifikator Administrasi</option>
-                    <option value="interviewer">Lembaga Seleksi (Wawancara)</option>
-                    <option value="admin">Administrator System</option>
-                  </select>
-                </div>
-                <button
-                  type="submit"
-                  className="btn btn-primary w-100"
-                  disabled={createMutation.isPending}
+              <form
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  form.handleSubmit();
+                }}
+              >
+                <form.Field name="name">
+                  {(field) => (
+                    <div className="mb-3">
+                      <label htmlFor={field.name} className="form-label">
+                        Nama Lengkap Petugas
+                      </label>
+                      <input
+                        id={field.name}
+                        name={field.name}
+                        type="text"
+                        className={`form-control ${field.state.meta.errors.length ? "is-invalid" : ""}`}
+                        placeholder="Contoh: Budi Prasetyo"
+                        value={field.state.value}
+                        onBlur={field.handleBlur}
+                        onChange={(e) => field.handleChange(e.target.value)}
+                      />
+                      {field.state.meta.errors.map((error) => (
+                        <div
+                          key={error ? (typeof error === "string" ? error : error.message) : ""}
+                          className="invalid-feedback d-block"
+                        >
+                          {error ? (typeof error === "string" ? error : error.message) : ""}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </form.Field>
+
+                <form.Field name="email">
+                  {(field) => (
+                    <div className="mb-3">
+                      <label htmlFor={field.name} className="form-label">
+                        Email / NIP Instansi
+                      </label>
+                      <input
+                        id={field.name}
+                        name={field.name}
+                        type="email"
+                        className={`form-control ${field.state.meta.errors.length ? "is-invalid" : ""}`}
+                        placeholder="budi@beasiswa.go.id"
+                        value={field.state.value}
+                        onBlur={field.handleBlur}
+                        onChange={(e) => field.handleChange(e.target.value)}
+                      />
+                      {field.state.meta.errors.map((error) => (
+                        <div
+                          key={error ? (typeof error === "string" ? error : error.message) : ""}
+                          className="invalid-feedback d-block"
+                        >
+                          {error ? (typeof error === "string" ? error : error.message) : ""}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </form.Field>
+
+                <form.Field name="password">
+                  {(field) => (
+                    <div className="mb-3">
+                      <label htmlFor={field.name} className="form-label">
+                        Kata Sandi Akses
+                      </label>
+                      <input
+                        id={field.name}
+                        name={field.name}
+                        type="password"
+                        className={`form-control ${field.state.meta.errors.length ? "is-invalid" : ""}`}
+                        placeholder="Minimal 8 karakter"
+                        value={field.state.value}
+                        onBlur={field.handleBlur}
+                        onChange={(e) => field.handleChange(e.target.value)}
+                        minLength={8}
+                      />
+                      <div className="form-text">
+                        Kata sandi awal untuk masuk ke sistem.
+                      </div>
+                      {field.state.meta.errors.map((error) => (
+                        <div
+                          key={error ? (typeof error === "string" ? error : error.message) : ""}
+                          className="invalid-feedback d-block"
+                        >
+                          {error ? (typeof error === "string" ? error : error.message) : ""}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </form.Field>
+
+                <form.Field name="role">
+                  {(field) => (
+                    <div className="mb-3">
+                      <label htmlFor={field.name} className="form-label">
+                        Role Akses Sistem
+                      </label>
+                      <select
+                        id={field.name}
+                        name={field.name}
+                        className="form-select"
+                        value={field.state.value}
+                        onBlur={field.handleBlur}
+                        onChange={(e) =>
+                          field.handleChange(
+                            e.target.value as "verifikator" | "interviewer" | "admin"
+                          )
+                        }
+                      >
+                        <option value="verifikator">Verifikator Administrasi</option>
+                        <option value="interviewer">Lembaga Seleksi (Wawancara)</option>
+                        <option value="admin">Administrator System</option>
+                      </select>
+                    </div>
+                  )}
+                </form.Field>
+
+                <form.Subscribe
+                  selector={(state) => ({
+                    isSubmitting: state.isSubmitting,
+                  })}
                 >
-                  {createMutation.isPending ? "Menyimpan..." : "Simpan Akun Petugas"}
-                </button>
+                  {({ isSubmitting }) => (
+                    <button
+                      type="submit"
+                      className="btn btn-primary w-100"
+                      disabled={isSubmitting || createMutation.isPending}
+                    >
+                      {isSubmitting || createMutation.isPending
+                        ? "Menyimpan..."
+                        : "Simpan Akun Petugas"}
+                    </button>
+                  )}
+                </form.Subscribe>
               </form>
             </div>
           </div>

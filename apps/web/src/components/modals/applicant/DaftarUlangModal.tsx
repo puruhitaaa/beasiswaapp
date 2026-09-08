@@ -1,6 +1,7 @@
-import React, { useState } from "react";
+import React from "react";
+import { useForm } from "@tanstack/react-form";
 import { toast } from "sonner";
-import { appStore } from "@/lib/store";
+import { z } from "zod";
 import { useConfirmDaftarUlangMutation } from "@/hooks/use-transaksi-queries";
 
 interface DaftarUlangModalProps {
@@ -10,36 +11,47 @@ interface DaftarUlangModalProps {
   programName: string;
 }
 
+const daftarUlangSchema = z.object({
+  kesediaan: z.enum(["bersedia", "mengundurkan"]),
+  catatan: z.string(),
+});
+
 export const DaftarUlangModal: React.FC<DaftarUlangModalProps> = ({
   isOpen,
   onClose,
   pendaftaranId,
   programName,
 }) => {
-  const [kesediaan, setKesediaan] = useState<"bersedia" | "mengundurkan">("bersedia");
-  const [catatan, setCatatan] = useState("");
   const confirmMutation = useConfirmDaftarUlangMutation();
 
-  if (!isOpen) return null;
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    try {
-      await confirmMutation.mutateAsync({
-        id: pendaftaranId,
-        statusKesediaan: kesediaan,
-        catatan,
-      });
-      if (kesediaan === "bersedia") {
-        toast.success("Konfirmasi kehadiran Anda telah berhasil tercatat. Silakan pantau grup koordinasi!");
-      } else {
-        toast.info("Konfirmasi pengunduran diri telah tercatat oleh panitia.");
+  const form = useForm({
+    defaultValues: {
+      kesediaan: "bersedia" as "bersedia" | "mengundurkan",
+      catatan: "",
+    },
+    validators: {
+      onSubmit: daftarUlangSchema,
+    },
+    onSubmit: async ({ value }) => {
+      try {
+        await confirmMutation.mutateAsync({
+          id: pendaftaranId,
+          statusKesediaan: value.kesediaan,
+          catatan: value.catatan,
+        });
+        if (value.kesediaan === "bersedia") {
+          toast.success("Konfirmasi kehadiran Anda telah berhasil tercatat. Silakan pantau grup koordinasi!");
+        } else {
+          toast.info("Konfirmasi pengunduran diri telah tercatat oleh panitia.");
+        }
+        onClose();
+      } catch (err: any) {
+        toast.error(err.message || "Gagal menyimpan konfirmasi daftar ulang.");
       }
-      onClose();
-    } catch (err: any) {
-      toast.error(err.message || "Gagal menyimpan konfirmasi daftar ulang.");
-    }
-  };
+    },
+  });
+
+  if (!isOpen) return null;
 
   return (
     <>
@@ -66,33 +78,73 @@ export const DaftarUlangModal: React.FC<DaftarUlangModalProps> = ({
                 Silakan konfirmasi kesediaan Anda untuk mengikuti program{" "}
                 <strong>{programName}</strong> hingga selesai.
               </p>
-              <form onSubmit={handleSubmit}>
-                <div className="mb-3">
-                  <label className="form-label fw-semibold small">Status Kesediaan</label>
-                  <select
-                    className="form-select"
-                    value={kesediaan}
-                    onChange={(e) => setKesediaan(e.target.value as "bersedia" | "mengundurkan")}
-                  >
-                    <option value="bersedia">Ya, Saya Bersedia Mengikuti Pelatihan</option>
-                    <option value="mengundurkan">Saya Mengundurkan Diri</option>
-                  </select>
-                </div>
-                <div className="mb-3">
-                  <label className="form-label fw-semibold small">
-                    Catatan Tambahan (Opsional)
-                  </label>
-                  <textarea
-                    className="form-control"
-                    rows={2}
-                    placeholder="Catatan untuk panitia..."
-                    value={catatan}
-                    onChange={(e) => setCatatan(e.target.value)}
-                  />
-                </div>
-                <button type="submit" className="btn btn-success w-100">
-                  Kirim Konfirmasi
-                </button>
+              <form
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  form.handleSubmit();
+                }}
+              >
+                <form.Field name="kesediaan">
+                  {(field) => (
+                    <div className="mb-3">
+                      <label htmlFor={field.name} className="form-label fw-semibold small">
+                        Status Kesediaan
+                      </label>
+                      <select
+                        id={field.name}
+                        name={field.name}
+                        className="form-select"
+                        value={field.state.value}
+                        onBlur={field.handleBlur}
+                        onChange={(e) =>
+                          field.handleChange(
+                            e.target.value as "bersedia" | "mengundurkan"
+                          )
+                        }
+                      >
+                        <option value="bersedia">Ya, Saya Bersedia Mengikuti Pelatihan</option>
+                        <option value="mengundurkan">Saya Mengundurkan Diri</option>
+                      </select>
+                    </div>
+                  )}
+                </form.Field>
+
+                <form.Field name="catatan">
+                  {(field) => (
+                    <div className="mb-3">
+                      <label htmlFor={field.name} className="form-label fw-semibold small">
+                        Catatan Tambahan (Opsional)
+                      </label>
+                      <textarea
+                        id={field.name}
+                        name={field.name}
+                        className="form-control"
+                        rows={2}
+                        placeholder="Catatan untuk panitia..."
+                        value={field.state.value}
+                        onBlur={field.handleBlur}
+                        onChange={(e) => field.handleChange(e.target.value)}
+                      />
+                    </div>
+                  )}
+                </form.Field>
+
+                <form.Subscribe
+                  selector={(state) => ({
+                    isSubmitting: state.isSubmitting,
+                  })}
+                >
+                  {({ isSubmitting }) => (
+                    <button
+                      type="submit"
+                      disabled={isSubmitting}
+                      className="btn btn-success w-100"
+                    >
+                      {isSubmitting ? "Mengirim..." : "Kirim Konfirmasi"}
+                    </button>
+                  )}
+                </form.Subscribe>
               </form>
             </div>
           </div>
