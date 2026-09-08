@@ -63,14 +63,26 @@ describe("Business Rules & FSM Verification", () => {
     const afterStep1 = await repository.upsertBiodata(app.id, {
       nik: "3201123456789999",
       namaLengkap: "Budi Santoso",
+      tempatLahir: "Bandung",
       tglLahir: "1997-05-12",
+      jenisKelamin: "L",
       alamat: "Jl. Merdeka No. 10",
+      provinsi: "Jawa Barat",
+      kabupatenKota: "Kota Bandung",
+      kecamatan: "Coblong",
+      kelurahan: "Dago",
       noHp: "081234567890",
       noWa: "081234567890",
       email: "budi@example.com",
     });
     expect(afterStep1.stepWizardTerakhir).toBe(2);
     expect(afterStep1.biodata.namaLengkap).toBe("Budi Santoso");
+    expect(afterStep1.biodata.tempatLahir).toBe("Bandung");
+    expect(afterStep1.biodata.jenisKelamin).toBe("L");
+    expect(afterStep1.biodata.provinsi).toBe("Jawa Barat");
+    expect(afterStep1.biodata.kabupatenKota).toBe("Kota Bandung");
+    expect(afterStep1.biodata.kecamatan).toBe("Coblong");
+    expect(afterStep1.biodata.kelurahan).toBe("Dago");
 
     // Step 2: Save Pendidikan
     const afterStep2 = await repository.upsertPendidikan(app.id, {

@@ -65,6 +65,15 @@ export function useMyActiveApplication() {
                       : resolvedName !== "-"
                       ? resolvedName
                       : "",
+                  tempatLahir: appRes.biodata.tempatLahir || "",
+                  tglLahir: appRes.biodata.tglLahir || "",
+                  jenisKelamin: appRes.biodata.jenisKelamin || "",
+                  alamat: appRes.biodata.alamat || "",
+                  provinsi: appRes.biodata.provinsi || "",
+                  kabupatenKota: appRes.biodata.kabupatenKota || "",
+                  kecamatan: appRes.biodata.kecamatan || "",
+                  kelurahan: appRes.biodata.kelurahan || "",
+                  noHp: appRes.biodata.noHp || "",
                   email: appRes.biodata.email || resolvedEmail,
                 }
               : {

@@ -595,15 +595,18 @@ function ApplicantPortalComponent() {
       </div>
 
       {/* Modals */}
-      <WizardModal
-        isOpen={wizardOpen}
-        onClose={() => setWizardOpen(false)}
-        pendaftaran={activeApp}
-        onSubmitted={() => {
-          setWizardOpen(false);
-          setReadonlyOpen(true);
-        }}
-      />
+      {wizardOpen && (
+        <WizardModal
+          key={`${activeApp.id}-${activeApp.stepWizardTerakhir || 1}-${activeApp.biodata?.tempatLahir || ""}`}
+          isOpen={wizardOpen}
+          onClose={() => setWizardOpen(false)}
+          pendaftaran={activeApp}
+          onSubmitted={() => {
+            setWizardOpen(false);
+            setReadonlyOpen(true);
+          }}
+        />
+      )}
 
       <WizardReadonlyModal
         isOpen={readonlyOpen}
