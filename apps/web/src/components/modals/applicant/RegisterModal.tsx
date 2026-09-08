@@ -5,12 +5,14 @@ import { toast } from "sonner";
 import { z } from "zod";
 import { useRegisterMutation } from "@/hooks/use-auth-queries";
 import { useInitApplicationMutation } from "@/hooks/use-transaksi-queries";
+import type { BeasiswaProgram } from "@/types";
 
 interface RegisterModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSwitchToLogin: () => void;
   targetProgramId?: string;
+  targetProgram?: BeasiswaProgram | null;
 }
 
 const registerModalSchema = z
@@ -31,6 +33,7 @@ export const RegisterModal: React.FC<RegisterModalProps> = ({
   onClose,
   onSwitchToLogin,
   targetProgramId,
+  targetProgram,
 }) => {
   const navigate = useNavigate();
   const registerMutation = useRegisterMutation();
@@ -56,12 +59,17 @@ export const RegisterModal: React.FC<RegisterModalProps> = ({
           password: value.password,
         });
 
-        // If a target program was selected, auto-init a draft in the backend
-        const progId = targetProgramId || "prog-web";
-        try {
-          await initApplicationMutation.mutateAsync({ beasiswaId: progId });
-        } catch {
-          // ignore if application already initialized
+        // If a target program was selected, auto-init a draft in the backend for that specific program
+        const progId = targetProgramId || targetProgram?.id;
+        if (progId) {
+          try {
+            await initApplicationMutation.mutateAsync({
+              beasiswaId: progId,
+              programName: targetProgram?.namaPelatihan,
+            });
+          } catch {
+            // ignore if application already initialized
+          }
         }
 
         toast.success("Akun berhasil didaftarkan ke sistem! Selamat datang.");
@@ -96,6 +104,15 @@ export const RegisterModal: React.FC<RegisterModalProps> = ({
               ></button>
             </div>
             <div className="modal-body">
+              {targetProgram && (
+                <div className="alert alert-primary d-flex align-items-center py-2 px-3 mb-3 border-0 bg-primary bg-opacity-10 text-primary">
+                  <i className="bi bi-award-fill fs-4 me-2"></i>
+                  <div>
+                    <div className="small text-muted">Mendaftar untuk Program:</div>
+                    <strong className="text-dark">{targetProgram.namaPelatihan}</strong>
+                  </div>
+                </div>
+              )}
               <form
                 onSubmit={(e) => {
                   e.preventDefault();

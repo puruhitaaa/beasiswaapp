@@ -1,11 +1,13 @@
 import React, { useState } from "react";
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { toast } from "sonner";
 import NavbarPublic from "@/components/layout/NavbarPublic";
 import ProgramCard from "@/components/cards/ProgramCard";
 import LoginModal from "@/components/modals/applicant/LoginModal";
 import RegisterModal from "@/components/modals/applicant/RegisterModal";
 import ProgramDetailModal from "@/components/modals/applicant/ProgramDetailModal";
 import { useBeasiswaList } from "@/hooks/use-master-queries";
+import { useInitApplicationMutation } from "@/hooks/use-transaksi-queries";
 import { useCurrentUser } from "@/lib/store";
 import type { BeasiswaProgram } from "@/types";
 
@@ -14,19 +16,46 @@ export const Route = createFileRoute("/")({
 });
 
 function LandingPageComponent() {
+  const navigate = useNavigate();
   const [loginOpen, setLoginOpen] = useState(false);
   const [registerOpen, setRegisterOpen] = useState(false);
   const [selectedProgram, setSelectedProgram] = useState<BeasiswaProgram | null>(null);
+  const [registeringProgram, setRegisteringProgram] = useState<BeasiswaProgram | null>(null);
   const currentUser = useCurrentUser();
 
   const { data: programs = [], isLoading } = useBeasiswaList();
+  const initMutation = useInitApplicationMutation();
 
   const handleOpenDetail = (prog: BeasiswaProgram) => {
     setSelectedProgram(prog);
   };
 
-  const handleDaftarFromDetail = (prog: BeasiswaProgram) => {
+  const handleDaftarFromDetail = async (prog: BeasiswaProgram) => {
     setSelectedProgram(null);
+
+    // If user is already logged in
+    if (currentUser) {
+      if (currentUser.role === "applicant") {
+        try {
+          await initMutation.mutateAsync({
+            beasiswaId: prog.id,
+            programName: prog.namaPelatihan,
+          });
+          toast.success(`Pendaftaran program ${prog.namaPelatihan} berhasil dimulai!`);
+          navigate({ to: "/applicant" });
+        } catch (err: any) {
+          toast.info(err.message || "Anda dialihkan ke portal pendaftar.");
+          navigate({ to: "/applicant" });
+        }
+      } else {
+        toast.info("Akun internal pemroses tidak dapat mendaftar beasiswa.");
+        navigate({ to: getPortalRoute() });
+      }
+      return;
+    }
+
+    // If not logged in, open Register modal with the chosen program
+    setRegisteringProgram(prog);
     setRegisterOpen(true);
   };
 
@@ -41,7 +70,10 @@ function LandingPageComponent() {
     <>
       <NavbarPublic
         onOpenLogin={() => setLoginOpen(true)}
-        onOpenRegister={() => setRegisterOpen(true)}
+        onOpenRegister={() => {
+          setRegisteringProgram(null);
+          setRegisterOpen(true);
+        }}
       />
 
       {/* Hero Section */}
@@ -69,7 +101,10 @@ function LandingPageComponent() {
                 <button
                   type="button"
                   className="btn btn-outline-light btn-lg px-4 mb-2"
-                  onClick={() => setRegisterOpen(true)}
+                  onClick={() => {
+                    setRegisteringProgram(null);
+                    setRegisterOpen(true);
+                  }}
                 >
                   Daftar Sekarang
                 </button>
@@ -237,11 +272,16 @@ function LandingPageComponent() {
 
       <RegisterModal
         isOpen={registerOpen}
-        onClose={() => setRegisterOpen(false)}
+        onClose={() => {
+          setRegisterOpen(false);
+          setRegisteringProgram(null);
+        }}
         onSwitchToLogin={() => {
           setRegisterOpen(false);
           setLoginOpen(true);
         }}
+        targetProgramId={registeringProgram?.id}
+        targetProgram={registeringProgram}
       />
 
       <ProgramDetailModal
