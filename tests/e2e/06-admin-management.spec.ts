@@ -1,4 +1,4 @@
-import { test, expect } from "@playwright/test";
+import { test, expect } from "./fixtures/test-base";
 import { loginAsAdmin, clearAuthSession } from "./fixtures/auth.fixture";
 
 test.describe("06. Administrator Management, Master Data & System Settings", () => {

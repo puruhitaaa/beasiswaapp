@@ -1,4 +1,4 @@
-import { test, expect } from "@playwright/test";
+import { test, expect, updateLowerThird } from "./fixtures/test-base";
 import { ensureDummyFiles } from "./fixtures/dummy-files";
 import {
   loginAsApplicant,
@@ -21,6 +21,10 @@ test.describe("07. Complete End-to-End Multi-Role Handshake Lifecycle", () => {
     // STAGE 1: APPLICANT REGISTRATION & SUBMISSION
     // ==========================================
     await clearAuthSession(page);
+    await updateLowerThird(page, {
+      role: "APPLICANT",
+      step: "Tahap 1: Registrasi & Pengajuan Formulir Pelatihan",
+    });
 
     // Register a fresh applicant for this handshake lifecycle test
     await page.goto("/");
@@ -109,6 +113,10 @@ test.describe("07. Complete End-to-End Multi-Role Handshake Lifecycle", () => {
     // ==========================================
     await logoutUser(page);
     await loginAsVerifikator(page);
+    await updateLowerThird(page, {
+      role: "VERIFIKATOR",
+      step: "Tahap 2: Verifikasi Berkas & Permintaan Revisi",
+    });
 
     // Open applicant in queue
     const relayRow1 = page.locator("tr", { hasText: uniqueNik });
@@ -140,6 +148,10 @@ test.describe("07. Complete End-to-End Multi-Role Handshake Lifecycle", () => {
     // ==========================================
     await logoutUser(page);
     await loginAsApplicant(page, relayEmail, relayPassword);
+    await updateLowerThird(page, {
+      role: "APPLICANT",
+      step: "Tahap 3: Perbaikan & Pengunggahan Ulang Berkas Revisi",
+    });
 
     const perbaikiBtn = page.locator("button:has-text('Perbaiki Data')").first();
     await expect(perbaikiBtn).toBeVisible({ timeout: 10000 });
@@ -171,6 +183,10 @@ test.describe("07. Complete End-to-End Multi-Role Handshake Lifecycle", () => {
     // ==========================================
     await logoutUser(page);
     await loginAsVerifikator(page);
+    await updateLowerThird(page, {
+      role: "VERIFIKATOR",
+      step: "Tahap 4: Verifikasi Ulang & Persetujuan Berkas (LOLOS_ADMIN)",
+    });
 
     const relayRow2 = page.locator("tr", { hasText: uniqueNik });
     await expect(relayRow2).toBeVisible({ timeout: 10000 });
@@ -198,6 +214,10 @@ test.describe("07. Complete End-to-End Multi-Role Handshake Lifecycle", () => {
     // ==========================================
     await logoutUser(page);
     await loginAsInterviewer(page);
+    await updateLowerThird(page, {
+      role: "INTERVIEWER",
+      step: "Tahap 5: Wawancara & Input Penilaian Skor Terbobot",
+    });
 
     const relayRow3 = page.locator("tr", { hasText: uniqueNik });
     await expect(relayRow3).toBeVisible({ timeout: 10000 });
@@ -223,6 +243,10 @@ test.describe("07. Complete End-to-End Multi-Role Handshake Lifecycle", () => {
     // ==========================================
     await logoutUser(page);
     await loginAsApplicant(page, relayEmail, relayPassword);
+    await updateLowerThird(page, {
+      role: "APPLICANT",
+      step: "Tahap 6: Pengumuman Kelulusan & Konfirmasi Daftar Ulang",
+    });
 
     const lulusBanner = page.locator("text=Selamat").or(page.locator("text=LULUS SELEKSI")).first();
     await expect(lulusBanner).toBeVisible({ timeout: 10000 });
@@ -242,6 +266,10 @@ test.describe("07. Complete End-to-End Multi-Role Handshake Lifecycle", () => {
     // ==========================================
     await logoutUser(page);
     await loginAsAdmin(page);
+    await updateLowerThird(page, {
+      role: "ADMINISTRATOR",
+      step: "Tahap 7: Audit Kelulusan & Export Rekapitulasi Excel",
+    });
 
     await page.locator("button:has-text('Hasil Seleksi')").first().click();
     await expect(page.locator("text=Hasil Kelulusan Peserta").first()).toBeVisible();

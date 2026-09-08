@@ -1,4 +1,4 @@
-import { test, expect } from "@playwright/test";
+import { test, expect } from "./fixtures/test-base";
 import { loginAsVerifikator, clearAuthSession } from "./fixtures/auth.fixture";
 
 test.describe("02. Verifikator Review & Administrative Decision Flow", () => {

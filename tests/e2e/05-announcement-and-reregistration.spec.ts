@@ -1,4 +1,4 @@
-import { test, expect } from "@playwright/test";
+import { test, expect } from "./fixtures/test-base";
 import { loginAsApplicant, clearAuthSession, TEST_CREDENTIALS } from "./fixtures/auth.fixture";
 
 test.describe("05. Graduation Announcement & Re-Registration Flow", () => {

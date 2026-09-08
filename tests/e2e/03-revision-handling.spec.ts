@@ -1,4 +1,4 @@
-import { test, expect } from "@playwright/test";
+import { test, expect } from "./fixtures/test-base";
 import { ensureDummyFiles } from "./fixtures/dummy-files";
 import { loginAsApplicant, clearAuthSession, TEST_CREDENTIALS } from "./fixtures/auth.fixture";
 

@@ -671,3 +671,15 @@ export function useCurrentUser() {
     () => null
   );
 }
+
+/**
+ * React hook to reactively subscribe to the active application for the current user in appStore.
+ */
+export function useMyActiveApplicationStore() {
+  return useSyncExternalStore(
+    (onStoreChange) => appStore.subscribe(onStoreChange),
+    () => appStore.getMyActiveApplication(),
+    () => undefined
+  );
+}
+

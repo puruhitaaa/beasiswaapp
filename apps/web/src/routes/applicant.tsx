@@ -6,7 +6,7 @@ import ProgramCard from "@/components/cards/ProgramCard";
 import WizardModal from "@/components/modals/applicant/WizardModal";
 import DaftarUlangModal from "@/components/modals/applicant/DaftarUlangModal";
 import FilePreviewModal from "@/components/modals/applicant/FilePreviewModal";
-import { appStore, useCurrentUser } from "@/lib/store";
+import { appStore, useCurrentUser, useMyActiveApplicationStore } from "@/lib/store";
 import { useBeasiswaList } from "@/hooks/use-master-queries";
 import {
   useMyActiveApplication,
@@ -25,7 +25,8 @@ function ApplicantPortalComponent() {
   const { data: programs = [] } = useBeasiswaList();
   const initMutation = useInitApplicationMutation();
 
-  const storeApplication = appStore.getMyActiveApplication();
+  const storeApplication = useMyActiveApplicationStore();
+
 
   const [wizardOpen, setWizardOpen] = useState(false);
   const [readonlyOpen, setReadonlyOpen] = useState(false);

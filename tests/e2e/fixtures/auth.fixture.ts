@@ -1,4 +1,5 @@
 import { Page, expect } from "@playwright/test";
+import { updateLowerThird } from "./test-base";
 
 export const TEST_CREDENTIALS = {
   admin: {
@@ -65,40 +66,50 @@ export async function logoutUser(page: Page) {
   } catch {
     // ignore
   }
+  await updateLowerThird(page, { role: "PUBLIC / GUEST" });
 }
 
 export async function loginAsAdmin(page: Page) {
+  await updateLowerThird(page, { role: "ADMINISTRATOR" });
   await page.goto("/login");
   await page.fill('input[name="username"]', TEST_CREDENTIALS.admin.email);
   await page.fill('input[name="password"]', TEST_CREDENTIALS.admin.password);
   await page.click('button[type="submit"]');
   await page.waitForURL("**/admin", { timeout: 15000 });
   await expect(page.locator("text=Panel Administrator").first()).toBeVisible({ timeout: 10000 });
+  await updateLowerThird(page, { role: "ADMINISTRATOR" });
 }
 
 export async function loginAsVerifikator(page: Page) {
+  await updateLowerThird(page, { role: "VERIFIKATOR" });
   await page.goto("/login");
   await page.fill('input[name="username"]', TEST_CREDENTIALS.verifikator.email);
   await page.fill('input[name="password"]', TEST_CREDENTIALS.verifikator.password);
   await page.click('button[type="submit"]');
   await page.waitForURL("**/verifikator", { timeout: 15000 });
   await expect(page.locator("text=Verifikasi Seleksi Administrasi").first()).toBeVisible({ timeout: 10000 });
+  await updateLowerThird(page, { role: "VERIFIKATOR" });
 }
 
 export async function loginAsInterviewer(page: Page) {
+  await updateLowerThird(page, { role: "INTERVIEWER" });
   await page.goto("/login");
   await page.fill('input[name="username"]', TEST_CREDENTIALS.interviewer.email);
   await page.fill('input[name="password"]', TEST_CREDENTIALS.interviewer.password);
   await page.click('button[type="submit"]');
   await page.waitForURL("**/wawancara", { timeout: 15000 });
   await expect(page.locator("text=Menu Proses Wawancara").first()).toBeVisible({ timeout: 10000 });
+  await updateLowerThird(page, { role: "INTERVIEWER" });
 }
 
 export async function loginAsApplicant(page: Page, email = TEST_CREDENTIALS.applicant.email, password = TEST_CREDENTIALS.applicant.password) {
+  await updateLowerThird(page, { role: "APPLICANT" });
   await page.goto("/login");
   await page.fill('input[name="username"]', email);
   await page.fill('input[name="password"]', password);
   await page.click('button[type="submit"]');
   await page.waitForURL("**/applicant", { timeout: 15000 });
   await expect(page.locator("a:has-text('Dashboard Saya')").first()).toBeVisible({ timeout: 10000 });
+  await updateLowerThird(page, { role: "APPLICANT" });
 }
+

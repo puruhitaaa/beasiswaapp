@@ -1,4 +1,4 @@
-import { test, expect } from "@playwright/test";
+import { test, expect } from "./fixtures/test-base";
 import { loginAsInterviewer, clearAuthSession } from "./fixtures/auth.fixture";
 
 test.describe("04. Lembaga Seleksi (Interviewer) Scoring & Weighted Calculation Flow", () => {

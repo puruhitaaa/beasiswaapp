@@ -1,4 +1,4 @@
-﻿import { defineConfig, devices } from "@playwright/test";
+import { defineConfig, devices } from "@playwright/test";
 
 export default defineConfig({
   testDir: "./tests/e2e",
@@ -13,12 +13,13 @@ export default defineConfig({
   reporter: [
     ["list"],
     ["html", { open: "never", outputFolder: "playwright-report" }],
+    ["./tests/e2e/fixtures/results-reporter.ts"],
   ],
   use: {
     baseURL: process.env.BASE_URL || "http://localhost:3001",
     trace: "on-first-retry",
     screenshot: "only-on-failure",
-    video: "retain-on-failure",
+    video: "on",
     viewport: { width: 1280, height: 720 },
   },
   projects: [
