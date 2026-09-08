@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { toast } from "sonner";
-import { appStore } from "@/lib/store";
+import { appStore, useCurrentUser } from "@/lib/store";
 import { SidebarInternal } from "@/components/layout/SidebarInternal";
 import { PageHeaderInternal } from "@/components/layout/PageHeaderInternal";
 import { BeasiswaModal } from "@/components/modals/internal/BeasiswaModal";
@@ -35,7 +35,7 @@ export const Route = createFileRoute("/admin")({
 
 function AdminPageComponent() {
   const navigate = useNavigate();
-  const currentUser = appStore.getCurrentUser();
+  const currentUser = useCurrentUser();
 
   // Authentication & Role Route Guard
   useEffect(() => {

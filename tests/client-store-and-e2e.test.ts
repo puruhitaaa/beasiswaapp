@@ -130,4 +130,39 @@ describe("Frontend Client Store & E2E Role Flow Simulation", () => {
     expect(stats.lulusWawancara).toBe(1);
     expect(stats.lolosAdministrasi).toBe(1);
   });
+
+  it("Authentication Persistence & Store Reactivity", () => {
+    let notifiedCount = 0;
+    const unsubscribe = appStore.subscribe(() => {
+      notifiedCount++;
+    });
+
+    // 1. Setting user updates memory, notifies listeners, and syncs localStorage
+    appStore.setCurrentUser({
+      id: "usr-persist-1",
+      name: "Budi Santoso",
+      email: "budi@example.com",
+      role: "applicant",
+    });
+
+    expect(appStore.getCurrentUser()?.name).toBe("Budi Santoso");
+    expect(notifiedCount).toBe(1);
+
+    if (typeof localStorage !== "undefined") {
+      const stored = localStorage.getItem("beasiswaapp_auth_user");
+      expect(stored).toBeTruthy();
+      expect(JSON.parse(stored!).name).toBe("Budi Santoso");
+    }
+
+    // 2. Logging out clears memory, notifies listeners, and removes localStorage
+    appStore.logout();
+    expect(appStore.getCurrentUser()).toBeNull();
+    expect(notifiedCount).toBe(2);
+
+    if (typeof localStorage !== "undefined") {
+      expect(localStorage.getItem("beasiswaapp_auth_user")).toBeNull();
+    }
+
+    unsubscribe();
+  });
 });

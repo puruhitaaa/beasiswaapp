@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { authApi, type ApiUser } from "@/lib/api";
+import { authApi, getStoredToken, type ApiUser } from "@/lib/api";
 import { appStore } from "@/lib/store";
 import { queryKeys } from "@/lib/query-client";
 import type { MasterMenu, MasterRole, UserInternal } from "@/types";
@@ -9,14 +9,20 @@ export function useUserProfile() {
     queryKey: queryKeys.auth.profile(),
     queryFn: async (): Promise<ApiUser | null> => {
       try {
+        const token = getStoredToken();
+        if (!token) return null;
         const user = await authApi.getProfile();
-        appStore.setCurrentUser(user);
+        if (user) {
+          appStore.setCurrentUser(user);
+        }
         return user;
-      } catch (err) {
+      } catch {
         return null;
       }
     },
+    enabled: typeof window !== "undefined" && !!getStoredToken(),
     retry: false,
+    staleTime: 5 * 60 * 1000,
   });
 }
 

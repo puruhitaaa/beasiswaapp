@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { toast } from "sonner";
-import { appStore } from "@/lib/store";
+import { appStore, useCurrentUser } from "@/lib/store";
 import { useWawancaraQueue } from "@/hooks/use-transaksi-queries";
 import { SidebarInternal } from "@/components/layout/SidebarInternal";
 import { PageHeaderInternal } from "@/components/layout/PageHeaderInternal";
@@ -14,7 +14,7 @@ export const Route = createFileRoute("/wawancara")({
 
 function WawancaraPageComponent() {
   const navigate = useNavigate();
-  const currentUser = appStore.getCurrentUser();
+  const currentUser = useCurrentUser();
 
   // Authentication & Role Route Guard
   useEffect(() => {

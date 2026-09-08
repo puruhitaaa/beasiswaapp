@@ -1,3 +1,4 @@
+import { useSyncExternalStore } from "react";
 import {
   initialInternalUsers,
   initialMenus,
@@ -95,6 +96,18 @@ class AppStore {
 
   setCurrentUser(user: AppState["currentUser"]) {
     this.state.currentUser = user;
+    if (typeof window !== "undefined") {
+      try {
+        if (user) {
+          localStorage.setItem("beasiswaapp_auth_user", JSON.stringify(user));
+        } else {
+          localStorage.removeItem("beasiswaapp_auth_user");
+          localStorage.removeItem("beasiswaapp_auth_token");
+        }
+      } catch {
+        // ignore storage errors in private browsing
+      }
+    }
     this.notify();
   }
 
@@ -554,6 +567,15 @@ class AppStore {
 
   // Reset to initial clean state
   resetToDefaults() {
+    if (typeof window !== "undefined") {
+      try {
+        localStorage.removeItem("beasiswaapp_auth_user");
+        localStorage.removeItem("beasiswaapp_auth_token");
+        localStorage.removeItem(STORAGE_KEY);
+      } catch {
+        // ignore
+      }
+    }
     this.state = {
       currentUser: null,
       programs: [],
@@ -568,3 +590,15 @@ class AppStore {
 }
 
 export const appStore = new AppStore();
+
+/**
+ * React hook to reactively subscribe to the current authenticated user in appStore.
+ * Synchronizes with localStorage and automatically triggers re-renders upon login/logout.
+ */
+export function useCurrentUser() {
+  return useSyncExternalStore(
+    (onStoreChange) => appStore.subscribe(onStoreChange),
+    () => appStore.getCurrentUser(),
+    () => null
+  );
+}

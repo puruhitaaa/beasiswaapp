@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { Link, useNavigate } from "@tanstack/react-router";
-import { appStore } from "@/lib/store";
+import { appStore, useCurrentUser } from "@/lib/store";
 import { authApi } from "@/lib/api";
 import type { ApplicationStatus } from "@/types";
 
@@ -11,12 +11,14 @@ interface NavbarApplicantProps {
 }
 
 export const NavbarApplicant: React.FC<NavbarApplicantProps> = ({
-  userName = "Peserta",
+  userName,
   onStatusChange,
   currentStatus,
 }) => {
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const navigate = useNavigate();
+  const currentUser = useCurrentUser();
+  const displayName = userName || currentUser?.name || "Peserta";
 
   const handleLogout = () => {
     authApi.logout();
@@ -54,7 +56,7 @@ export const NavbarApplicant: React.FC<NavbarApplicantProps> = ({
               type="button"
               onClick={() => setDropdownOpen(!dropdownOpen)}
             >
-              <i className="bi bi-person-circle me-1"></i> {userName}
+              <i className="bi bi-person-circle me-1"></i> {displayName}
             </button>
             {dropdownOpen && (
               <ul className="dropdown-menu dropdown-menu-end show shadow">
@@ -63,6 +65,16 @@ export const NavbarApplicant: React.FC<NavbarApplicantProps> = ({
                     Peran: Calon Peserta
                   </span>
                 </li>
+                {currentUser?.email && (
+                  <li>
+                    <span
+                      className="dropdown-item-text text-muted small text-truncate d-inline-block"
+                      style={{ maxWidth: "200px" }}
+                    >
+                      {currentUser.email}
+                    </span>
+                  </li>
+                )}
                 <li>
                   <hr className="dropdown-divider" />
                 </li>

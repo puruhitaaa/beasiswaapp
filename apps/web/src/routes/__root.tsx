@@ -5,6 +5,7 @@ import {
 } from "@tanstack/react-router";
 import { TanStackRouterDevtools } from "@tanstack/react-router-devtools";
 import { Toaster } from "sonner";
+import { useUserProfile } from "@/hooks/use-auth-queries";
 
 import "../index.css";
 
@@ -32,6 +33,9 @@ export const Route = createRootRouteWithContext<RouterAppContext>()({
 });
 
 function RootComponent() {
+  // Silently re-validates and syncs user profile on session boot / page refresh
+  useUserProfile();
+
   return (
     <>
       <HeadContent />

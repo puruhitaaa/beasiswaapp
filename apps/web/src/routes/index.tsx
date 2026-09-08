@@ -1,11 +1,12 @@
 import React, { useState } from "react";
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import NavbarPublic from "@/components/layout/NavbarPublic";
 import ProgramCard from "@/components/cards/ProgramCard";
 import LoginModal from "@/components/modals/applicant/LoginModal";
 import RegisterModal from "@/components/modals/applicant/RegisterModal";
 import ProgramDetailModal from "@/components/modals/applicant/ProgramDetailModal";
 import { useBeasiswaList } from "@/hooks/use-master-queries";
+import { useCurrentUser } from "@/lib/store";
 import type { BeasiswaProgram } from "@/types";
 
 export const Route = createFileRoute("/")({
@@ -16,6 +17,7 @@ function LandingPageComponent() {
   const [loginOpen, setLoginOpen] = useState(false);
   const [registerOpen, setRegisterOpen] = useState(false);
   const [selectedProgram, setSelectedProgram] = useState<BeasiswaProgram | null>(null);
+  const currentUser = useCurrentUser();
 
   const { data: programs = [], isLoading } = useBeasiswaList();
 
@@ -26,6 +28,13 @@ function LandingPageComponent() {
   const handleDaftarFromDetail = (prog: BeasiswaProgram) => {
     setSelectedProgram(null);
     setRegisterOpen(true);
+  };
+
+  const getPortalRoute = () => {
+    if (currentUser?.role === "admin") return "/admin";
+    if (currentUser?.role === "verifikator") return "/verifikator";
+    if (currentUser?.role === "interviewer") return "/wawancara";
+    return "/applicant";
   };
 
   return (
@@ -49,13 +58,22 @@ function LandingPageComponent() {
               <a href="#program" className="btn btn-warning btn-lg fw-bold px-4 me-2 mb-2">
                 Lihat Beasiswa Aktif
               </a>
-              <button
-                type="button"
-                className="btn btn-outline-light btn-lg px-4 mb-2"
-                onClick={() => setRegisterOpen(true)}
-              >
-                Daftar Sekarang
-              </button>
+              {currentUser ? (
+                <Link
+                  to={getPortalRoute()}
+                  className="btn btn-outline-light btn-lg px-4 mb-2"
+                >
+                  <i className="bi bi-speedometer2 me-1"></i>Buka Portal Dashboard
+                </Link>
+              ) : (
+                <button
+                  type="button"
+                  className="btn btn-outline-light btn-lg px-4 mb-2"
+                  onClick={() => setRegisterOpen(true)}
+                >
+                  Daftar Sekarang
+                </button>
+              )}
             </div>
             <div className="col-lg-5 text-center d-none d-lg-block">
               <i className="bi bi-award display-1 opacity-75" style={{ fontSize: "10rem" }}></i>

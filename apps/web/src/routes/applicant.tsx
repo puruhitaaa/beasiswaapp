@@ -7,7 +7,7 @@ import WizardModal from "@/components/modals/applicant/WizardModal";
 import WizardReadonlyModal from "@/components/modals/applicant/WizardReadonlyModal";
 import DaftarUlangModal from "@/components/modals/applicant/DaftarUlangModal";
 import FilePreviewModal from "@/components/modals/applicant/FilePreviewModal";
-import { appStore } from "@/lib/store";
+import { appStore, useCurrentUser } from "@/lib/store";
 import { useBeasiswaList } from "@/hooks/use-master-queries";
 import {
   useMyActiveApplication,
@@ -21,7 +21,7 @@ export const Route = createFileRoute("/applicant")({
 
 function ApplicantPortalComponent() {
   const navigate = useNavigate();
-  const currentUser = appStore.getCurrentUser();
+  const currentUser = useCurrentUser();
   const { data: myApp, isLoading: isAppLoading } = useMyActiveApplication();
   const { data: programs = [] } = useBeasiswaList();
   const initMutation = useInitApplicationMutation();
@@ -156,7 +156,7 @@ function ApplicantPortalComponent() {
   return (
     <>
       <NavbarApplicant
-        userName={activeApp.userName}
+        userName={currentUser?.name || activeApp.biodata?.namaLengkap || activeApp.userName || "Peserta"}
         currentStatus={currentStatus}
       />
 
