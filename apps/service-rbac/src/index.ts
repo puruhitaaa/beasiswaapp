@@ -12,6 +12,24 @@ const fastify = Fastify({
   },
 });
 
+// Gracefully handle empty JSON bodies to prevent FST_ERR_CTP_EMPTY_JSON_BODY
+fastify.addContentTypeParser(
+  "application/json",
+  { parseAs: "string" },
+  (_req, body, done) => {
+    if (!body || (typeof body === "string" && body.trim().length === 0)) {
+      done(null, {});
+      return;
+    }
+    try {
+      done(null, JSON.parse(body as string));
+    } catch (err: any) {
+      err.statusCode = 400;
+      done(err, undefined);
+    }
+  }
+);
+
 const CORS_ORIGIN = process.env.CORS_ORIGIN || "http://localhost:3001";
 await fastify.register(fastifyCors, {
   origin: [CORS_ORIGIN, "http://localhost:3000", "http://localhost:5173"],

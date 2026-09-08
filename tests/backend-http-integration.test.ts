@@ -192,4 +192,34 @@ describe("Web Client API Integration & Contract Verification", () => {
     expect(createObjectURLMock).toHaveBeenCalled();
     expect(clicked).toBe(true);
   });
+
+  it("transaksiApi.submit sends valid non-empty JSON body and requests without body omit Content-Type", async () => {
+    let submitHeaders: Record<string, string> = {};
+    let submitBody: any = null;
+    vi.spyOn(global, "fetch").mockImplementationOnce(async (_url, init) => {
+      submitHeaders = init?.headers as Record<string, string>;
+      submitBody = init?.body;
+      return new Response(JSON.stringify({ success: true }), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      });
+    });
+
+    await transaksiApi.submit("prm-123");
+    expect(submitHeaders["Content-Type"]).toBe("application/json");
+    expect(submitBody).toBe(JSON.stringify({}));
+
+    // For a GET request without a body, Content-Type must NOT be set
+    let getHeaders: Record<string, string> = {};
+    vi.spyOn(global, "fetch").mockImplementationOnce(async (_url, init) => {
+      getHeaders = init?.headers as Record<string, string>;
+      return new Response(JSON.stringify({ id: "prm-123" }), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      });
+    });
+
+    await transaksiApi.getById("prm-123");
+    expect(getHeaders["Content-Type"]).toBeUndefined();
+  });
 });

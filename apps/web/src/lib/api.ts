@@ -56,7 +56,12 @@ async function request<T = any>(
     headers["Authorization"] = `Bearer ${token}`;
   }
 
-  if (!(options.body instanceof FormData) && !headers["Content-Type"]) {
+  if (
+    options.body !== undefined &&
+    options.body !== null &&
+    !(options.body instanceof FormData) &&
+    !headers["Content-Type"]
+  ) {
     headers["Content-Type"] = "application/json";
   }
 
@@ -259,6 +264,7 @@ export const transaksiApi = {
   async submit(id: string) {
     return request<any>(`/api/transaksi/pendaftaran/${id}/submit`, {
       method: "POST",
+      body: JSON.stringify({}),
     });
   },
 

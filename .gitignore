@@ -57,3 +57,4 @@ coverage
 tmp
 temp
 .slim/
+storage/

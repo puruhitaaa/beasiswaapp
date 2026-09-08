@@ -13,6 +13,24 @@ const fastify = Fastify({
   },
 });
 
+// Gracefully handle empty JSON bodies to prevent FST_ERR_CTP_EMPTY_JSON_BODY
+fastify.addContentTypeParser(
+  "application/json",
+  { parseAs: "string" },
+  (_req, body, done) => {
+    if (!body || (typeof body === "string" && body.trim().length === 0)) {
+      done(null, {});
+      return;
+    }
+    try {
+      done(null, JSON.parse(body as string));
+    } catch (err: any) {
+      err.statusCode = 400;
+      done(err, undefined);
+    }
+  }
+);
+
 const MASTER_SERVICE_URL =
   process.env.MASTER_SERVICE_URL || "http://127.0.0.1:3012";
 const INTERNAL_SECRET =
