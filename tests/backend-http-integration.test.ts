@@ -54,6 +54,36 @@ describe("Web Client API Integration & Contract Verification", () => {
     expect(getStoredUser()).toBeNull();
   });
 
+  it("authApi supports role-agnostic login and auto-resolves internal roles from backend response", async () => {
+    const mockStaff = {
+      id: "user-verif-1",
+      name: "Budi Verifikator",
+      email: "verifikator@kemenag.go.id",
+      role: "verifikator" as const,
+    };
+    const mockToken = "jwt.staff.token";
+
+    const fetchSpy = vi.spyOn(global, "fetch").mockResolvedValueOnce(
+      new Response(JSON.stringify({ token: mockToken, user: mockStaff }), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      })
+    );
+
+    // Call login without specifying role
+    const res = await authApi.login(mockStaff.email, "Verifikator123!");
+    expect(res.token).toBe(mockToken);
+    expect(res.user.role).toBe("verifikator");
+    expect(getStoredUser()?.role).toBe("verifikator");
+
+    // Verify request payload did not mandate a role
+    const requestBody = JSON.parse(fetchSpy.mock.calls[0][1]?.body as string);
+    expect(requestBody.email).toBe(mockStaff.email);
+    expect(requestBody.role).toBeUndefined();
+
+    authApi.logout();
+  });
+
   it("authApi.register sends registration payload and receives authenticated session", async () => {
     const mockUser = {
       id: "u-reg-1",

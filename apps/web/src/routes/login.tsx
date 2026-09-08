@@ -12,7 +12,6 @@ export const Route = createFileRoute("/login")({
 const loginSchema = z.object({
   username: z.string().min(1, "Harap isi ID pengguna."),
   password: z.string().min(1, "Harap isi kata sandi."),
-  role: z.enum(["verifikator", "interviewer", "admin"]),
   rememberMe: z.boolean(),
 });
 
@@ -24,7 +23,6 @@ function InternalLoginComponent() {
     defaultValues: {
       username: "",
       password: "",
-      role: "verifikator" as "verifikator" | "interviewer" | "admin",
       rememberMe: true,
     },
     validators: {
@@ -32,20 +30,34 @@ function InternalLoginComponent() {
     },
     onSubmit: async ({ value }) => {
       try {
-        await loginMutation.mutateAsync({
+        const res = await loginMutation.mutateAsync({
           email: value.username,
           password: value.password,
-          role: value.role,
         });
 
-        toast.success(`Berhasil masuk sebagai ${value.role.toUpperCase()}!`);
+        const role = res.user?.role;
+        const roleLabels: Record<string, string> = {
+          verifikator: "Verifikator",
+          interviewer: "Pewawancara",
+          admin: "Administrator",
+          superadmin: "Superadmin",
+          applicant: "Peserta",
+        };
+        const roleDisplay = role ? roleLabels[role] || role.toUpperCase() : "Petugas";
 
-        if (value.role === "verifikator") {
+        toast.success(`Berhasil masuk sebagai ${roleDisplay}!`);
+
+        if (role === "verifikator") {
           navigate({ to: "/verifikator" });
-        } else if (value.role === "interviewer") {
+        } else if (role === "interviewer") {
           navigate({ to: "/wawancara" });
-        } else {
+        } else if (role === "admin") {
           navigate({ to: "/admin" });
+        } else if (role === "applicant") {
+          toast.info("Mengarahkan ke Dashboard Calon Peserta...");
+          navigate({ to: "/applicant" });
+        } else {
+          navigate({ to: "/" });
         }
       } catch (err: any) {
         toast.error(err.message || "Gagal masuk. Periksa kembali akun Anda.");
@@ -152,31 +164,6 @@ function InternalLoginComponent() {
                 )}
               </form.Field>
 
-              <form.Field name="role">
-                {(field) => (
-                  <div className="mb-4">
-                    <label htmlFor={field.name} className="form-label fw-semibold text-secondary small">
-                      Masuk Sebagai (Role Akses)
-                    </label>
-                    <select
-                      id={field.name}
-                      name={field.name}
-                      className="form-select bg-light"
-                      value={field.state.value}
-                      onBlur={field.handleBlur}
-                      onChange={(e) =>
-                        field.handleChange(
-                          e.target.value as "verifikator" | "interviewer" | "admin"
-                        )
-                      }
-                    >
-                      <option value="verifikator">Verifikator (Seleksi Administrasi)</option>
-                      <option value="interviewer">Lembaga Seleksi (Wawancara)</option>
-                      <option value="admin">Administrator System</option>
-                    </select>
-                  </div>
-                )}
-              </form.Field>
 
               <form.Field name="rememberMe">
                 {(field) => (
