@@ -25,6 +25,7 @@ interface WizardModalProps {
   onClose: () => void;
   pendaftaran: PendaftaranRecord;
   onSubmitted?: () => void;
+  readOnly?: boolean;
 }
 
 const wizardSchema = z.object({
@@ -40,11 +41,22 @@ export const WizardModal: React.FC<WizardModalProps> = ({
   onClose,
   pendaftaran,
   onSubmitted,
+  readOnly = false,
 }) => {
-  const isRevisionMode = pendaftaran.status === "REVISI";
+  const isStatusLocked =
+    pendaftaran.status === "SUBMITTED" ||
+    pendaftaran.status === "DALAM_PROSES_ADMIN" ||
+    pendaftaran.status === "LOLOS_ADMIN" ||
+    pendaftaran.status === "DALAM_PROSES_WAWANCARA" ||
+    pendaftaran.status === "LULUS_DITERIMA" ||
+    pendaftaran.status === "TIDAK_LOLOS_ADMIN" ||
+    pendaftaran.status === "TIDAK_LULUS_WAWANCARA";
 
-  // Resume-later: start at stepWizardTerakhir (or Step 3 if revision mode)
-  const initialStep = isRevisionMode ? 3 : Math.min(Math.max(pendaftaran.stepWizardTerakhir || 1, 1), 4);
+  const isReadOnly = Boolean(readOnly || isStatusLocked);
+  const isRevisionMode = !isReadOnly && pendaftaran.status === "REVISI";
+
+  // Resume-later: start at stepWizardTerakhir (or Step 3 if revision mode, Step 1 if read-only)
+  const initialStep = isReadOnly ? 1 : isRevisionMode ? 3 : Math.min(Math.max(pendaftaran.stepWizardTerakhir || 1, 1), 4);
   const [currentStep, setCurrentStep] = useState(initialStep);
 
   const saveStep1Mutation = useSaveStep1Mutation();
@@ -138,9 +150,9 @@ export const WizardModal: React.FC<WizardModalProps> = ({
 
   useEffect(() => {
     if (isOpen) {
-      setCurrentStep(isRevisionMode ? 3 : Math.min(Math.max(pendaftaran.stepWizardTerakhir || 1, 1), 4));
+      setCurrentStep(isReadOnly ? 1 : isRevisionMode ? 3 : Math.min(Math.max(pendaftaran.stepWizardTerakhir || 1, 1), 4));
     }
-  }, [isOpen, isRevisionMode]);
+  }, [isOpen, isRevisionMode, isReadOnly]);
 
   if (!isOpen) return null;
 
@@ -299,9 +311,21 @@ export const WizardModal: React.FC<WizardModalProps> = ({
       >
         <div className="modal-dialog modal-xl modal-dialog-scrollable">
           <div className="modal-content">
-            <div className="modal-header bg-primary text-white">
+            <div className={`modal-header ${isReadOnly ? "bg-secondary" : "bg-primary"} text-white`}>
               <h5 className="modal-title fw-bold">
-                Formulir Pendaftaran — {pendaftaran.beasiswaNama}
+                {isReadOnly ? (
+                  <>
+                    <i className="bi bi-lock-fill me-2" />
+                    Formulir Pendaftaran (Read-Only) — {pendaftaran.beasiswaNama}
+                  </>
+                ) : isRevisionMode ? (
+                  <>
+                    <i className="bi bi-pencil-square me-2" />
+                    Perbaikan Berkas Pendaftaran (Revisi) — {pendaftaran.beasiswaNama}
+                  </>
+                ) : (
+                  <>Formulir Pendaftaran — {pendaftaran.beasiswaNama}</>
+                )}
               </h5>
               <button
                 type="button"
@@ -311,6 +335,23 @@ export const WizardModal: React.FC<WizardModalProps> = ({
             </div>
 
             <div className="modal-body p-0">
+              {isReadOnly && (
+                <div className="bg-warning-subtle p-3 border-bottom d-flex align-items-center text-dark">
+                  <i className="bi bi-lock-fill fs-5 me-2 text-warning-emphasis"></i>
+                  <span className="small">
+                    Data pendaftaran ini berstatus <strong>{pendaftaran.status}</strong>. Seluruh kolom isian dalam mode <strong>baca saja (read-only)</strong>.
+                  </span>
+                </div>
+              )}
+              {isRevisionMode && (
+                <div className="bg-info-subtle p-3 border-bottom d-flex align-items-center text-dark">
+                  <i className="bi bi-pencil-fill fs-5 me-2 text-info-emphasis"></i>
+                  <span className="small">
+                    Permohonan dalam status <strong>Revisi</strong>. Silakan perbaiki hanya berkas atau data yang ditandai oleh Verifikator.
+                  </span>
+                </div>
+              )}
+
               {/* Stepper Header */}
               <ul className="nav nav-tabs nav-justified wizard-steps bg-white" role="tablist">
                 <li className="nav-item">
@@ -327,7 +368,7 @@ export const WizardModal: React.FC<WizardModalProps> = ({
                     type="button"
                     className={`nav-link ${currentStep === 2 ? "active" : ""} ${currentStep > 2 ? "completed" : ""}`}
                     onClick={() => {
-                      if (validateStep1()) setCurrentStep(2);
+                      if (isReadOnly || validateStep1()) setCurrentStep(2);
                     }}
                   >
                     2. Pendidikan & Pekerjaan
@@ -338,7 +379,7 @@ export const WizardModal: React.FC<WizardModalProps> = ({
                     type="button"
                     className={`nav-link ${currentStep === 3 ? "active" : ""} ${currentStep > 3 ? "completed" : ""}`}
                     onClick={() => {
-                      if (validateStep1() && validateStep2()) setCurrentStep(3);
+                      if (isReadOnly || (validateStep1() && validateStep2())) setCurrentStep(3);
                     }}
                   >
                     3. Unggah Dokumen
@@ -349,7 +390,7 @@ export const WizardModal: React.FC<WizardModalProps> = ({
                     type="button"
                     className={`nav-link ${currentStep === 4 ? "active" : ""}`}
                     onClick={() => {
-                      if (validateStep1() && validateStep2()) setCurrentStep(4);
+                      if (isReadOnly || (validateStep1() && validateStep2())) setCurrentStep(4);
                     }}
                   >
                     4. Persetujuan & Submit
@@ -381,6 +422,7 @@ export const WizardModal: React.FC<WizardModalProps> = ({
                                 placeholder="Masukkan 16 digit NIK"
                                 maxLength={16}
                                 value={field.state.value}
+                                disabled={isReadOnly}
                                 onBlur={field.handleBlur}
                                 onChange={(e) => field.handleChange(e.target.value)}
                               />
@@ -411,6 +453,7 @@ export const WizardModal: React.FC<WizardModalProps> = ({
                                 className={`form-control ${field.state.meta.errors.length ? "is-invalid" : ""}`}
                                 placeholder="Masukkan nama sesuai KTP"
                                 value={field.state.value}
+                                disabled={isReadOnly}
                                 onBlur={field.handleBlur}
                                 onChange={(e) => field.handleChange(e.target.value)}
                               />
@@ -441,6 +484,7 @@ export const WizardModal: React.FC<WizardModalProps> = ({
                                 className={`form-control ${field.state.meta.errors.length ? "is-invalid" : ""}`}
                                 placeholder="Kota tempat lahir"
                                 value={field.state.value}
+                                disabled={isReadOnly}
                                 onBlur={field.handleBlur}
                                 onChange={(e) => field.handleChange(e.target.value)}
                               />
@@ -470,6 +514,7 @@ export const WizardModal: React.FC<WizardModalProps> = ({
                                 type="date"
                                 className={`form-control ${field.state.meta.errors.length ? "is-invalid" : ""}`}
                                 value={field.state.value}
+                                disabled={isReadOnly}
                                 onBlur={field.handleBlur}
                                 onChange={(e) => field.handleChange(e.target.value)}
                               />
@@ -498,6 +543,7 @@ export const WizardModal: React.FC<WizardModalProps> = ({
                                 name={field.name}
                                 className={`form-select ${field.state.meta.errors.length ? "is-invalid" : ""}`}
                                 value={field.state.value}
+                                disabled={isReadOnly}
                                 onBlur={field.handleBlur}
                                 onChange={(e) => field.handleChange((e.target.value || "L") as "L" | "P")}
                               >
@@ -532,6 +578,7 @@ export const WizardModal: React.FC<WizardModalProps> = ({
                                 rows={2}
                                 placeholder="Nama jalan, RT/RW, no. rumah"
                                 value={field.state.value}
+                                disabled={isReadOnly}
                                 onBlur={field.handleBlur}
                                 onChange={(e) => field.handleChange(e.target.value)}
                               />
@@ -560,6 +607,7 @@ export const WizardModal: React.FC<WizardModalProps> = ({
                                 name={field.name}
                                 className={`form-select ${field.state.meta.errors.length ? "is-invalid" : ""}`}
                                 value={field.state.value}
+                                disabled={isReadOnly}
                                 onBlur={field.handleBlur}
                                 onChange={(e) => field.handleChange(e.target.value)}
                               >
@@ -594,6 +642,7 @@ export const WizardModal: React.FC<WizardModalProps> = ({
                                 name={field.name}
                                 className={`form-select ${field.state.meta.errors.length ? "is-invalid" : ""}`}
                                 value={field.state.value}
+                                disabled={isReadOnly}
                                 onBlur={field.handleBlur}
                                 onChange={(e) => field.handleChange(e.target.value)}
                               >
@@ -628,6 +677,7 @@ export const WizardModal: React.FC<WizardModalProps> = ({
                                 name={field.name}
                                 className={`form-select ${field.state.meta.errors.length ? "is-invalid" : ""}`}
                                 value={field.state.value}
+                                disabled={isReadOnly}
                                 onBlur={field.handleBlur}
                                 onChange={(e) => field.handleChange(e.target.value)}
                               >
@@ -661,6 +711,7 @@ export const WizardModal: React.FC<WizardModalProps> = ({
                                 name={field.name}
                                 className={`form-select ${field.state.meta.errors.length ? "is-invalid" : ""}`}
                                 value={field.state.value}
+                                disabled={isReadOnly}
                                 onBlur={field.handleBlur}
                                 onChange={(e) => field.handleChange(e.target.value)}
                               >
@@ -696,6 +747,7 @@ export const WizardModal: React.FC<WizardModalProps> = ({
                                 className={`form-control ${field.state.meta.errors.length ? "is-invalid" : ""}`}
                                 placeholder="Contoh: 081234567890"
                                 value={field.state.value}
+                                disabled={isReadOnly}
                                 onBlur={field.handleBlur}
                                 onChange={(e) => field.handleChange(e.target.value)}
                               />
@@ -726,6 +778,7 @@ export const WizardModal: React.FC<WizardModalProps> = ({
                                 className={`form-control ${field.state.meta.errors.length ? "is-invalid" : ""}`}
                                 placeholder="nama@email.com"
                                 value={field.state.value}
+                                disabled={isReadOnly}
                                 onBlur={field.handleBlur}
                                 onChange={(e) => field.handleChange(e.target.value)}
                               />
@@ -764,6 +817,7 @@ export const WizardModal: React.FC<WizardModalProps> = ({
                                 name={field.name}
                                 className={`form-select ${field.state.meta.errors.length ? "is-invalid" : ""}`}
                                 value={field.state.value}
+                                disabled={isReadOnly}
                                 onBlur={field.handleBlur}
                                 onChange={(e) => field.handleChange(e.target.value)}
                               >
@@ -799,6 +853,7 @@ export const WizardModal: React.FC<WizardModalProps> = ({
                                 className={`form-control ${field.state.meta.errors.length ? "is-invalid" : ""}`}
                                 placeholder="Contoh: Universitas Komputer Indonesia"
                                 value={field.state.value}
+                                disabled={isReadOnly}
                                 onBlur={field.handleBlur}
                                 onChange={(e) => field.handleChange(e.target.value)}
                               />
@@ -828,6 +883,7 @@ export const WizardModal: React.FC<WizardModalProps> = ({
                                 className={`form-control ${field.state.meta.errors.length ? "is-invalid" : ""}`}
                                 placeholder="Contoh: Teknik Informatika"
                                 value={field.state.value}
+                                disabled={isReadOnly}
                                 onBlur={field.handleBlur}
                                 onChange={(e) => field.handleChange(e.target.value)}
                               />
@@ -857,6 +913,7 @@ export const WizardModal: React.FC<WizardModalProps> = ({
                                 className={`form-control ${field.state.meta.errors.length ? "is-invalid" : ""}`}
                                 placeholder="Contoh: Software Developer / Freelancer"
                                 value={field.state.value}
+                                disabled={isReadOnly}
                                 onBlur={field.handleBlur}
                                 onChange={(e) => field.handleChange(e.target.value)}
                               />
@@ -898,7 +955,33 @@ export const WizardModal: React.FC<WizardModalProps> = ({
                             <label className="form-label fw-semibold small">
                               {doc.namaPersyaratan} <span className="text-danger">*</span>
                             </label>
-                            {isLockedInRevision ? (
+                            {isReadOnly ? (
+                              <div className="input-group">
+                                <input
+                                  type="text"
+                                  className="form-control bg-light"
+                                  value={doc.fileName || "Berkas Tersimpan"}
+                                  disabled
+                                />
+                                {(doc.fileUrl || doc.id || doc.dokumenId) ? (
+                                  <button
+                                    type="button"
+                                    className="btn btn-outline-primary"
+                                    onClick={() => {
+                                      const id = doc.dokumenId || doc.id;
+                                      const url = doc.fileUrl || (id ? dokumenApi.getViewUrl(id) : undefined);
+                                      if (url) window.open(url, "_blank");
+                                    }}
+                                  >
+                                    <i className="bi bi-eye me-1"></i>Lihat
+                                  </button>
+                                ) : (
+                                  <span className="input-group-text bg-secondary-subtle text-muted small">
+                                    Tidak ada berkas
+                                  </span>
+                                )}
+                              </div>
+                            ) : isLockedInRevision ? (
                               <div className="input-group">
                                 <input
                                   type="text"
@@ -989,7 +1072,9 @@ export const WizardModal: React.FC<WizardModalProps> = ({
 
                     <div className="alert alert-light border">
                       <p className="small mb-0 text-muted">
-                        Pastikan Anda telah memeriksa kembali seluruh isian pada Step 1 hingga Step 3 sebelum menekan tombol Submit Final. Data yang telah dikirim tidak dapat diubah kembali.
+                        {isReadOnly
+                          ? `Pendaftaran telah berstatus ${pendaftaran.status}. Seluruh rincian data dan dokumen berada pada mode hanya baca (read-only).`
+                          : "Pastikan Anda telah memeriksa kembali seluruh isian pada Step 1 hingga Step 3 sebelum menekan tombol Submit Final. Data yang telah dikirim tidak dapat diubah kembali."}
                       </p>
                     </div>
 
@@ -1002,7 +1087,8 @@ export const WizardModal: React.FC<WizardModalProps> = ({
                               type="checkbox"
                               id={field.name}
                               name={field.name}
-                              checked={field.state.value}
+                              checked={isReadOnly ? true : field.state.value}
+                              disabled={isReadOnly}
                               onBlur={field.handleBlur}
                               onChange={(e) => field.handleChange(e.target.checked)}
                               required
@@ -1011,7 +1097,7 @@ export const WizardModal: React.FC<WizardModalProps> = ({
                               Saya menyatakan dengan sesungguhnya bahwa seluruh data dan dokumen yang saya unggah adalah benar, sah, dan milik saya pribadi. Apabila di kemudian hari ditemukan kebohongan, saya bersedia didiskualifikasi dari seleksi pendaftaran.
                             </label>
                           </div>
-                          {field.state.meta.errors.map((error) => (
+                          {!isReadOnly && field.state.meta.errors.map((error) => (
                             <div
                               key={String((error as any)?.message ?? error)}
                               className="invalid-feedback d-block"
@@ -1038,17 +1124,23 @@ export const WizardModal: React.FC<WizardModalProps> = ({
                 <i className="bi bi-arrow-left me-1"></i> Kembali
               </button>
               <div>
-                <button
-                  type="button"
-                  className="btn btn-outline-primary me-2"
-                  onClick={handleSaveDraft}
-                >
-                  <i className="bi bi-bookmark me-1"></i>Simpan Draft
-                </button>
+                {!isReadOnly && (
+                  <button
+                    type="button"
+                    className="btn btn-outline-primary me-2"
+                    onClick={handleSaveDraft}
+                  >
+                    <i className="bi bi-bookmark me-1"></i>Simpan Draft
+                  </button>
+                )}
 
                 {currentStep < 4 ? (
                   <button type="button" className="btn btn-primary" onClick={handleNext}>
                     Selanjutnya <i className="bi bi-arrow-right ms-1"></i>
+                  </button>
+                ) : isReadOnly ? (
+                  <button type="button" className="btn btn-outline-secondary" onClick={onClose}>
+                    <i className="bi bi-x-lg me-1"></i> Tutup
                   </button>
                 ) : (
                   <form.Subscribe

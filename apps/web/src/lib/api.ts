@@ -6,6 +6,9 @@ export const API_BASE_URL =
 const TOKEN_KEY = "beasiswaapp_auth_token";
 const USER_KEY = "beasiswaapp_auth_user";
 
+let memoryToken: string | null = null;
+let isRefreshing = false;
+
 export interface ApiUser {
   id: string;
   name: string;
@@ -15,14 +18,19 @@ export interface ApiUser {
 }
 
 export function getStoredToken(): string | null {
+  if (memoryToken) return memoryToken;
   if (typeof window === "undefined") return null;
-  return localStorage.getItem(TOKEN_KEY);
+  const sess = typeof sessionStorage !== "undefined" ? sessionStorage.getItem(TOKEN_KEY) : null;
+  const local = typeof localStorage !== "undefined" ? localStorage.getItem(TOKEN_KEY) : null;
+  return sess || local;
 }
 
 export function getStoredUser(): ApiUser | null {
   if (typeof window === "undefined") return null;
   try {
-    const raw = localStorage.getItem(USER_KEY);
+    const sess = typeof sessionStorage !== "undefined" ? sessionStorage.getItem(USER_KEY) : null;
+    const local = typeof localStorage !== "undefined" ? localStorage.getItem(USER_KEY) : null;
+    const raw = sess || local;
     return raw ? JSON.parse(raw) : null;
   } catch {
     return null;
@@ -30,16 +38,30 @@ export function getStoredUser(): ApiUser | null {
 }
 
 export function setStoredSession(token: string, user: ApiUser) {
+  memoryToken = token;
   if (typeof window !== "undefined") {
-    localStorage.setItem(TOKEN_KEY, token);
-    localStorage.setItem(USER_KEY, JSON.stringify(user));
+    if (typeof sessionStorage !== "undefined") {
+      sessionStorage.setItem(USER_KEY, JSON.stringify(user));
+      sessionStorage.setItem(TOKEN_KEY, token);
+    }
+    if (typeof localStorage !== "undefined") {
+      localStorage.setItem(USER_KEY, JSON.stringify(user));
+      localStorage.setItem(TOKEN_KEY, token);
+    }
   }
 }
 
 export function clearStoredSession() {
+  memoryToken = null;
   if (typeof window !== "undefined") {
-    localStorage.removeItem(TOKEN_KEY);
-    localStorage.removeItem(USER_KEY);
+    if (typeof sessionStorage !== "undefined") {
+      sessionStorage.removeItem(TOKEN_KEY);
+      sessionStorage.removeItem(USER_KEY);
+    }
+    if (typeof localStorage !== "undefined") {
+      localStorage.removeItem(TOKEN_KEY);
+      localStorage.removeItem(USER_KEY);
+    }
   }
 }
 
@@ -67,8 +89,48 @@ async function request<T = any>(
 
   const response = await fetch(`${API_BASE_URL}${path}`, {
     ...options,
+    credentials: "include",
     headers,
   });
+
+  // Handle 401 with silent token refresh attempt
+  if (
+    response.status === 401 &&
+    !path.includes("/api/auth/login") &&
+    !path.includes("/api/auth/register") &&
+    !path.includes("/api/auth/refresh") &&
+    !path.includes("/api/auth/token") &&
+    !isRefreshing
+  ) {
+    isRefreshing = true;
+    try {
+      const refreshed = await authApi.refreshToken();
+      isRefreshing = false;
+      if (refreshed?.token) {
+        // Retry the original request once with fresh token
+        headers["Authorization"] = `Bearer ${refreshed.token}`;
+        const retryResponse = await fetch(`${API_BASE_URL}${path}`, {
+          ...options,
+          credentials: "include",
+          headers,
+        });
+        if (retryResponse.ok) {
+          const ct = retryResponse.headers.get("content-type");
+          if (
+            ct &&
+            (ct.includes("text/csv") ||
+              ct.includes("application/octet-stream") ||
+              ct.includes("application/pdf"))
+          ) {
+            return (await retryResponse.blob()) as unknown as T;
+          }
+          return retryResponse.json();
+        }
+      }
+    } catch {
+      isRefreshing = false;
+    }
+  }
 
   if (!response.ok) {
     let errorMessage = `HTTP Error ${response.status}: ${response.statusText}`;
@@ -164,8 +226,38 @@ export const authApi = {
     });
   },
 
-  logout() {
+  async refreshToken() {
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/auth/refresh`, {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+      });
+      if (!res.ok) {
+        clearStoredSession();
+        return null;
+      }
+      const data = await res.json();
+      if (data.token && data.user) {
+        setStoredSession(data.token, data.user);
+        return data as { token: string; user: ApiUser };
+      }
+      return null;
+    } catch {
+      return null;
+    }
+  },
+
+  async logout() {
     clearStoredSession();
+    try {
+      await fetch(`${API_BASE_URL}/api/auth/logout`, {
+        method: "POST",
+        credentials: "include",
+      });
+    } catch {
+      // ignore
+    }
   },
 };
 

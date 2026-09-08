@@ -111,6 +111,31 @@ describe("Web Client API Integration & Contract Verification", () => {
     expect(getStoredToken()).toBe(mockToken);
   });
 
+  it("authApi.refreshToken requests new access token with session cookie credentials", async () => {
+    const mockRefreshedUser = {
+      id: "user-refreshed",
+      name: "Refreshed User",
+      email: "refreshed@example.com",
+      role: "applicant" as const,
+    };
+    const mockNewToken = "new.refreshed.jwt";
+
+    const fetchSpy = vi.spyOn(global, "fetch").mockResolvedValueOnce(
+      new Response(JSON.stringify({ token: mockNewToken, user: mockRefreshedUser }), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      })
+    );
+
+    const res = await authApi.refreshToken();
+    expect(res?.token).toBe(mockNewToken);
+    expect(getStoredToken()).toBe(mockNewToken);
+    expect(fetchSpy).toHaveBeenCalledWith(
+      expect.stringContaining("/api/auth/refresh"),
+      expect.objectContaining({ credentials: "include" })
+    );
+  });
+
   it("dokumenApi sets up multipart FormData and generates view/download URLs", async () => {
     const mockFile = new File(["dummy pdf content"], "ktp.pdf", {
       type: "application/pdf",

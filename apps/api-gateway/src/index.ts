@@ -77,7 +77,12 @@ async function authenticateUser(
       req.cookies["__Secure-better-auth.session_token"];
   }
 
-  if (!token && req.query && typeof (req.query as any).token === "string") {
+  if (
+    !token &&
+    req.url.startsWith("/api/dokumen") &&
+    req.query &&
+    typeof (req.query as any).token === "string"
+  ) {
     token = (req.query as any).token;
   }
 

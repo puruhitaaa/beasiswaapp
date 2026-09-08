@@ -4,7 +4,6 @@ import { toast } from "sonner";
 import NavbarApplicant from "@/components/layout/NavbarApplicant";
 import ProgramCard from "@/components/cards/ProgramCard";
 import WizardModal from "@/components/modals/applicant/WizardModal";
-import WizardReadonlyModal from "@/components/modals/applicant/WizardReadonlyModal";
 import DaftarUlangModal from "@/components/modals/applicant/DaftarUlangModal";
 import FilePreviewModal from "@/components/modals/applicant/FilePreviewModal";
 import { appStore, useCurrentUser } from "@/lib/store";
@@ -608,12 +607,15 @@ function ApplicantPortalComponent() {
         />
       )}
 
-      <WizardReadonlyModal
-        isOpen={readonlyOpen}
-        onClose={() => setReadonlyOpen(false)}
-        pendaftaran={activeApp}
-        onPreviewFile={(name, fileUrl) => setPreviewFile({ fileName: name, fileUrl })}
-      />
+      {readonlyOpen && (
+        <WizardModal
+          key={`${activeApp.id}-readonly`}
+          isOpen={readonlyOpen}
+          onClose={() => setReadonlyOpen(false)}
+          pendaftaran={activeApp}
+          readOnly={true}
+        />
+      )}
 
       <DaftarUlangModal
         isOpen={daftarUlangOpen}

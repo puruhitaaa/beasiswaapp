@@ -1,8 +1,9 @@
 import "dotenv/config";
+import cookie from "@fastify/cookie";
 import fastifyCors from "@fastify/cors";
 import { verifyPassword } from "better-auth/crypto";
 import Fastify, { type FastifyReply, type FastifyRequest } from "fastify";
-import { SignJWT } from "jose";
+import { SignJWT, jwtVerify } from "jose";
 import { auth } from "./auth.js";
 import { rbacRepository } from "./repository.js";
 
@@ -45,6 +46,8 @@ await fastify.register(fastifyCors, {
   credentials: true,
 });
 
+await fastify.register(cookie);
+
 // 1. Health check
 fastify.get("/health", async () => {
   return {
@@ -58,19 +61,46 @@ const JWT_SECRET = new TextEncoder().encode(
   process.env.BETTER_AUTH_SECRET || "default-secret-key-min-32-chars-fallback"
 );
 
-// Helper to create JWT token
-async function generateToken(user: { id: string; email: string; name: string; role: string }) {
+// Short-lived Access Token (15 minutes per ADR-005)
+async function generateAccessToken(user: { id: string; email: string; name: string; role: string }) {
   return new SignJWT({
     userId: user.id,
     sub: user.id,
     role: user.role,
     email: user.email,
     name: user.name,
+    tokenType: "access",
+  })
+    .setProtectedHeader({ alg: "HS256" })
+    .setIssuedAt()
+    .setExpirationTime("15m")
+    .sign(JWT_SECRET);
+}
+
+// Long-lived Refresh Session Token (7 days per ADR-005)
+async function generateSessionToken(user: { id: string; email: string; name: string; role: string }) {
+  return new SignJWT({
+    userId: user.id,
+    sub: user.id,
+    role: user.role,
+    email: user.email,
+    name: user.name,
+    tokenType: "session",
   })
     .setProtectedHeader({ alg: "HS256" })
     .setIssuedAt()
     .setExpirationTime("7d")
     .sign(JWT_SECRET);
+}
+
+function setAuthCookies(reply: FastifyReply, sessionToken: string) {
+  reply.setCookie("better-auth.session_token", sessionToken, {
+    path: "/",
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "lax",
+    maxAge: 7 * 24 * 60 * 60, // 7 days in seconds
+  });
 }
 
 // 2. Register Endpoint (Public)
@@ -101,12 +131,15 @@ fastify.post("/api/auth/register", async (request, reply) => {
       roleName: "applicant",
     });
 
-    const token = await generateToken(user);
+    const accessToken = await generateAccessToken(user);
+    const sessionToken = await generateSessionToken(user);
+    setAuthCookies(reply, sessionToken);
+
     const userWithNik = {
       ...user,
       nik: nik || (user.id.startsWith("user-") ? user.id.replace("user-", "") : undefined),
     };
-    return reply.status(201).send({ token, user: userWithNik });
+    return reply.status(201).send({ token: accessToken, user: userWithNik });
   } catch (err: any) {
     fastify.log.error({ err }, "Registration error:");
     return reply.status(500).send({ error: err.message || "Gagal mendaftarkan akun." });
@@ -158,21 +191,50 @@ fastify.post("/api/auth/login", async (request, reply) => {
       role: userRole,
     };
 
-    const token = await generateToken(tokenUser);
-    return { token, user: tokenUser };
+    const accessToken = await generateAccessToken(tokenUser);
+    const sessionToken = await generateSessionToken(tokenUser);
+    setAuthCookies(reply, sessionToken);
+
+    return { token: accessToken, user: tokenUser };
   } catch (err: any) {
     fastify.log.error({ err }, "Login error:");
     return reply.status(500).send({ error: "Terjadi kesalahan saat memverifikasi autentikasi." });
   }
 });
 
-// 4. Token generation endpoint (Backward compatibility & token refresh)
+// 4. Token generation & silent refresh endpoint (reads HttpOnly session cookie or credentials)
 fastify.post("/api/auth/token", async (request, reply) => {
   const body = (request.body || {}) as any;
   const email = body.email;
   const password = body.password;
 
-  // If password provided, do real authentication
+  // A. If session cookie exists, perform silent refresh
+  const cookieSessionToken = request.cookies?.["better-auth.session_token"];
+  if (cookieSessionToken && !password) {
+    try {
+      const { payload } = await jwtVerify(cookieSessionToken, JWT_SECRET);
+      const userId = String(payload.sub || payload.userId || "");
+      if (userId) {
+        const user = await rbacRepository.findUserById(userId);
+        if (user) {
+          const tokenUser = {
+            id: user.id,
+            email: user.email,
+            name: user.name,
+            role: user.role || "applicant",
+          };
+          const newAccessToken = await generateAccessToken(tokenUser);
+          const newSessionToken = await generateSessionToken(tokenUser);
+          setAuthCookies(reply, newSessionToken);
+          return { token: newAccessToken, user: tokenUser };
+        }
+      }
+    } catch {
+      // Expired or invalid cookie, proceed to other checks
+    }
+  }
+
+  // B. If password provided, do real authentication
   if (password && email) {
     const user = await rbacRepository.findUserWithAuthByEmail(email);
     if (user) {
@@ -189,12 +251,14 @@ fastify.post("/api/auth/token", async (request, reply) => {
         name: user.name,
         role: user.role?.name || "applicant",
       };
-      const token = await generateToken(tokenUser);
-      return { token, user: tokenUser };
+      const accessToken = await generateAccessToken(tokenUser);
+      const sessionToken = await generateSessionToken(tokenUser);
+      setAuthCookies(reply, sessionToken);
+      return { token: accessToken, user: tokenUser };
     }
   }
 
-  // Fallback lookup by email from database
+  // C. Fallback lookup by email from database
   if (email) {
     const user = await rbacRepository.findUserWithAuthByEmail(email);
     if (user) {
@@ -204,12 +268,56 @@ fastify.post("/api/auth/token", async (request, reply) => {
         name: user.name,
         role: user.role?.name || body.role || "applicant",
       };
-      const token = await generateToken(tokenUser);
-      return { token, user: tokenUser };
+      const accessToken = await generateAccessToken(tokenUser);
+      const sessionToken = await generateSessionToken(tokenUser);
+      setAuthCookies(reply, sessionToken);
+      return { token: accessToken, user: tokenUser };
     }
   }
 
-  return reply.status(401).send({ error: "Kredensial atau akun tidak ditemukan di database." });
+  return reply.status(401).send({ error: "Kredensial atau sesi tidak ditemukan di database." });
+});
+
+// 4b. Explicit silent refresh endpoint
+fastify.post("/api/auth/refresh", async (request, reply) => {
+  const cookieSessionToken =
+    request.cookies?.["better-auth.session_token"] ||
+    (request.headers.authorization?.startsWith("Bearer ")
+      ? request.headers.authorization.substring(7)
+      : undefined);
+
+  if (!cookieSessionToken) {
+    return reply.status(401).send({ error: "Sesi tidak ditemukan atau telah berakhir." });
+  }
+
+  try {
+    const { payload } = await jwtVerify(cookieSessionToken, JWT_SECRET);
+    const userId = String(payload.sub || payload.userId || "");
+    const user = await rbacRepository.findUserById(userId);
+    if (!user) {
+      return reply.status(401).send({ error: "Pengguna tidak ditemukan." });
+    }
+
+    const tokenUser = {
+      id: user.id,
+      email: user.email,
+      name: user.name,
+      role: user.role || "applicant",
+    };
+    const newAccessToken = await generateAccessToken(tokenUser);
+    const newSessionToken = await generateSessionToken(tokenUser);
+    setAuthCookies(reply, newSessionToken);
+
+    return { token: newAccessToken, user: tokenUser };
+  } catch {
+    return reply.status(401).send({ error: "Sesi kedaluwarsa. Silakan masuk kembali." });
+  }
+});
+
+// 4c. Logout Endpoint (Clears HttpOnly session cookie)
+fastify.post("/api/auth/logout", async (_request, reply) => {
+  reply.clearCookie("better-auth.session_token", { path: "/" });
+  return { success: true, message: "Berhasil keluar." };
 });
 
 // 5. Better-Auth Handler (Passthrough)

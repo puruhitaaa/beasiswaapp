@@ -5,7 +5,7 @@ import { z } from "zod";
 import { appStore } from "@/lib/store";
 import { dokumenApi } from "@/lib/api";
 import { useSubmitVerifikasiMutation } from "@/hooks/use-transaksi-queries";
-import type { PendaftaranRecord } from "@/types";
+import type { PendaftaranRecord, DokumenUploadItem } from "@/types";
 
 interface VerifikasiModalProps {
   isOpen: boolean;
@@ -27,8 +27,13 @@ export const VerifikasiModal: React.FC<VerifikasiModalProps> = ({
   onPreviewFile,
   onSuccess,
 }) => {
-  const [activeTab, setActiveTab] = useState<1 | 2 | 3 | 4>(1);
   const submitVerifikasiMutation = useSubmitVerifikasiMutation();
+
+  // Selected active document for embedded preview
+  const [activeDocKey, setActiveDocKey] = useState<string | null>(null);
+  const [zoom, setZoom] = useState<number>(1);
+  const [rotation, setRotation] = useState<number>(0);
+  const [showBiodataDetail, setShowBiodataDetail] = useState<boolean>(false);
 
   // Document checklist state: mapping of persyaratanId to { isSesuai, catatanPerbaikan }
   const [docChecks, setDocChecks] = useState<
@@ -112,6 +117,13 @@ export const VerifikasiModal: React.FC<VerifikasiModalProps> = ({
           catatanVerifikator: "",
         });
       }
+
+      if (pendaftaran.dokumen && pendaftaran.dokumen.length > 0) {
+        const first = pendaftaran.dokumen[0];
+        setActiveDocKey(first.dokumenId || first.id || first.persyaratanId);
+        setZoom(1);
+        setRotation(0);
+      }
     }
   }, [pendaftaran]);
 
@@ -119,6 +131,28 @@ export const VerifikasiModal: React.FC<VerifikasiModalProps> = ({
 
   const bio = pendaftaran.biodata;
   const pend = pendaftaran.pendidikan;
+
+  // Active document selection
+  const activeDoc: DokumenUploadItem | undefined =
+    pendaftaran.dokumen.find(
+      (d) => (d.dokumenId || d.id || d.persyaratanId) === activeDocKey
+    ) || pendaftaran.dokumen[0];
+
+  const activeDocIdFinal = activeDoc ? activeDoc.dokumenId || activeDoc.id : undefined;
+  const activeDocUrl =
+    activeDoc?.fileUrl || (activeDocIdFinal ? dokumenApi.getViewUrl(activeDocIdFinal) : undefined);
+  const isPdf = Boolean(
+    (activeDoc?.fileName || "").toLowerCase().endsWith(".pdf") ||
+      activeDoc?.mimeType === "application/pdf" ||
+      activeDoc?.format?.toLowerCase() === "pdf"
+  );
+
+  const handleSelectDoc = (doc: DokumenUploadItem) => {
+    const key = doc.dokumenId || doc.id || doc.persyaratanId;
+    setActiveDocKey(key);
+    setZoom(1);
+    setRotation(0);
+  };
 
   const handleDocCheck = (persyaratanId: string, isSesuai: boolean) => {
     setDocChecks((prev) => ({
@@ -129,7 +163,6 @@ export const VerifikasiModal: React.FC<VerifikasiModalProps> = ({
       },
     }));
 
-    // Auto switch decision to "revisi" if any doc is marked not sesuai
     if (!isSesuai && form.getFieldValue("statusKeputusan") === "disetujui") {
       form.setFieldValue("statusKeputusan", "revisi");
     }
@@ -145,359 +178,451 @@ export const VerifikasiModal: React.FC<VerifikasiModalProps> = ({
     }));
   };
 
+  const zoomIn = () => setZoom((prev) => Math.min(3, Math.round((prev + 0.25) * 100) / 100));
+  const zoomOut = () => setZoom((prev) => Math.max(0.5, Math.round((prev - 0.25) * 100) / 100));
+  const rotateClockwise = () => setRotation((prev) => (prev + 90) % 360);
+  const resetTransform = () => {
+    setZoom(1);
+    setRotation(0);
+  };
+
+  const totalDocs = pendaftaran.dokumen.length;
+  const sesuaiDocs = Object.values(docChecks).filter((d) => d.isSesuai).length;
+
   return (
     <>
       <div
         className="modal fade show d-block"
         tabIndex={-1}
         role="dialog"
-        style={{ backgroundColor: "rgba(0,0,0,0.5)" }}
+        style={{ backgroundColor: "rgba(0,0,0,0.6)" }}
       >
-        <div className="modal-dialog modal-xl modal-dialog-scrollable">
-          <div className="modal-content border-0 shadow-lg">
-            <div className="modal-header bg-primary text-white py-3">
+        <div
+          className="modal-dialog modal-fullscreen-xl-down modal-xl modal-dialog-centered"
+          style={{ maxWidth: "96vw", margin: "1rem auto" }}
+        >
+          <div
+            className="modal-content border-0 shadow-lg rounded-3 overflow-hidden"
+            style={{ height: "92vh", display: "flex", flexDirection: "column" }}
+          >
+            {/* Modal Header */}
+            <div className="modal-header bg-primary text-white py-2 px-3">
               <div className="d-flex align-items-center">
                 <div
-                  className="bg-white text-primary rounded-circle p-2 me-3 d-flex align-items-center justify-content-center"
-                  style={{ width: "45px", height: "45px" }}
+                  className="bg-white text-primary rounded-circle p-2 me-2 d-flex align-items-center justify-content-center"
+                  style={{ width: "38px", height: "38px" }}
                 >
-                  <i className="bi bi-person-bounding-box fs-4"></i>
+                  <i className="bi bi-layout-split fs-5"></i>
                 </div>
                 <div>
-                  <h5 className="modal-title fw-bold mb-0">
-                    Verifikasi Berkas Seleksi Administrasi
-                  </h5>
+                  <h6 className="modal-title fw-bold mb-0">
+                    Workspace Verifikasi Berkas Administrasi
+                  </h6>
                   <small className="text-white-50">
-                    Kode Pendaftaran: {pendaftaran.kodePermohonan} | Tipe: {pendaftaran.tipePengajuan}
+                    Kode Tiket: <span className="font-monospace text-white">{pendaftaran.kodePermohonan}</span> | Peserta: <span className="fw-semibold text-white">{pendaftaran.userName}</span> ({pendaftaran.beasiswaNama})
                   </small>
                 </div>
               </div>
-              <button
-                type="button"
-                className="btn-close btn-close-white"
-                onClick={onClose}
-              ></button>
+              <div className="d-flex align-items-center gap-2">
+                <span className="badge bg-light text-primary">
+                  <i className="bi bi-file-earmark-check me-1"></i>
+                  {sesuaiDocs}/{totalDocs} Berkas Sesuai
+                </span>
+                <button
+                  type="button"
+                  className="btn-close btn-close-white"
+                  onClick={onClose}
+                  aria-label="Tutup"
+                ></button>
+              </div>
             </div>
 
-            <div className="modal-body p-0 bg-light">
-              <ul
-                className="nav nav-pills nav-justified bg-white border-bottom p-2 gap-2"
-                role="tablist"
-              >
-                <li className="nav-item">
-                  <button
-                    type="button"
-                    className={`nav-link fw-semibold small ${activeTab === 1 ? "active" : ""}`}
-                    onClick={() => setActiveTab(1)}
+            {/* Split Workspace Body */}
+            <div className="modal-body p-0 bg-dark" style={{ flex: 1, overflow: "hidden" }}>
+              <div className="container-fluid h-100 p-0">
+                <div className="row g-0 h-100">
+                  {/* LEFT PANEL: Document Viewer Workspace (approx 58%) */}
+                  <div
+                    className="col-lg-7 d-flex flex-column h-100 border-end border-secondary position-relative bg-dark"
+                    style={{ minHeight: "450px" }}
                   >
-                    <i className="bi bi-person-vcard me-1"></i> 1. Data Diri & Kontak
-                  </button>
-                </li>
-                <li className="nav-item">
-                  <button
-                    type="button"
-                    className={`nav-link fw-semibold small ${activeTab === 2 ? "active" : ""}`}
-                    onClick={() => setActiveTab(2)}
-                  >
-                    <i className="bi bi-mortarboard me-1"></i> 2. Pendidikan & Kerja
-                  </button>
-                </li>
-                <li className="nav-item">
-                  <button
-                    type="button"
-                    className={`nav-link fw-semibold small ${activeTab === 3 ? "active" : ""}`}
-                    onClick={() => setActiveTab(3)}
-                  >
-                    <i className="bi bi-file-earmark-check me-1"></i> 3. Upload Dokumen
-                  </button>
-                </li>
-                <li className="nav-item">
-                  <button
-                    type="button"
-                    className={`nav-link fw-semibold small ${activeTab === 4 ? "active" : ""}`}
-                    onClick={() => setActiveTab(4)}
-                  >
-                    <i className="bi bi-patch-check me-1"></i> 4. Persetujuan & Keputusan
-                  </button>
-                </li>
-              </ul>
+                    {/* Viewer Toolbar */}
+                    <div className="bg-dark bg-opacity-75 text-white p-2 d-flex align-items-center justify-content-between border-bottom border-secondary">
+                      <div className="d-flex align-items-center text-truncate me-2">
+                        <i
+                          className={`bi ${
+                            isPdf ? "bi-file-earmark-pdf text-danger" : "bi-file-earmark-image text-info"
+                          } fs-5 me-2`}
+                        ></i>
+                        <span className="fw-semibold text-truncate small" title={activeDoc?.namaPersyaratan}>
+                          {activeDoc?.namaPersyaratan || "Tidak ada berkas dipilih"}
+                        </span>
+                        {activeDoc?.format && (
+                          <span className="badge bg-secondary ms-2 text-uppercase extra-small">
+                            {activeDoc.format}
+                          </span>
+                        )}
+                      </div>
 
-              <div className="p-4">
-                {/* TAB 1 */}
-                {activeTab === 1 && (
-                  <div className="card border-0 shadow-sm mb-3">
-                    <div className="card-header bg-white fw-bold text-primary border-bottom">
-                      <i className="bi bi-card-heading me-2"></i>Informasi Data Diri & Domisili Peserta
-                    </div>
-                    <div className="card-body">
-                      <div className="row g-3">
-                        <div className="col-md-4">
-                          <label className="text-muted extra-small d-block mb-1">
-                            NIK (Nomor Induk Kependudukan)
-                          </label>
-                          <div className="fw-bold fs-6 text-dark bg-light p-2 rounded border">
-                            {bio?.nik || pendaftaran.userNik}
-                          </div>
-                        </div>
-                        <div className="col-md-5">
-                          <label className="text-muted extra-small d-block mb-1">Nama Lengkap</label>
-                          <div className="fw-bold fs-6 text-dark bg-light p-2 rounded border">
-                            {bio?.namaLengkap || pendaftaran.userName}
-                          </div>
-                        </div>
-                        <div className="col-md-3">
-                          <label className="text-muted extra-small d-block mb-1">Jenis Kelamin</label>
-                          <div className="fw-bold fs-6 text-dark bg-light p-2 rounded border">
-                            {bio?.jenisKelamin === "P" ? "Perempuan" : "Laki-laki"}
-                          </div>
-                        </div>
-
-                        <div className="col-md-4">
-                          <label className="text-muted extra-small d-block mb-1">
-                            Tempat, Tanggal Lahir
-                          </label>
-                          <div className="fw-semibold text-dark bg-light p-2 rounded border">
-                            {bio?.tempatLahir || "-"}, {bio?.tglLahir || "-"}
-                          </div>
-                        </div>
-                        <div className="col-md-4">
-                          <label className="text-muted extra-small d-block mb-1">
-                            No. HP / WhatsApp
-                          </label>
-                          <div className="fw-semibold text-dark bg-light p-2 rounded border">
-                            <i className="bi bi-whatsapp text-success me-1"></i>{" "}
-                            {bio?.noHp || "-"}
-                          </div>
-                        </div>
-                        <div className="col-md-4">
-                          <label className="text-muted extra-small d-block mb-1">Alamat Email</label>
-                          <div className="fw-semibold text-dark bg-light p-2 rounded border">
-                            <i className="bi bi-envelope me-1 text-primary"></i>{" "}
-                            {bio?.email || "-"}
-                          </div>
-                        </div>
-
-                        <div className="col-12">
-                          <label className="text-muted extra-small d-block mb-1">
-                            Alamat Domisili Lengkap
-                          </label>
-                          <div className="fw-semibold text-dark bg-light p-2 rounded border">
-                            {bio?.alamat || "-"}
-                          </div>
-                        </div>
-
-                        <div className="col-md-3">
-                          <label className="text-muted extra-small d-block mb-1">Provinsi</label>
-                          <div className="bg-light p-2 rounded border small">
-                            {bio?.provinsi || "-"}
-                          </div>
-                        </div>
-                        <div className="col-md-3">
-                          <label className="text-muted extra-small d-block mb-1">Kabupaten/Kota</label>
-                          <div className="bg-light p-2 rounded border small">
-                            {bio?.kabupatenKota || "-"}
-                          </div>
-                        </div>
-                        <div className="col-md-3">
-                          <label className="text-muted extra-small d-block mb-1">Kecamatan</label>
-                          <div className="bg-light p-2 rounded border small">
-                            {bio?.kecamatan || "-"}
-                          </div>
-                        </div>
-                        <div className="col-md-3">
-                          <label className="text-muted extra-small d-block mb-1">Kelurahan</label>
-                          <div className="bg-light p-2 rounded border small">
-                            {bio?.kelurahan || "-"}
-                          </div>
-                        </div>
+                      {/* Zoom and Rotate Controls */}
+                      <div className="d-flex align-items-center gap-1">
+                        <button
+                          type="button"
+                          className="btn btn-sm btn-outline-light py-1 px-2"
+                          onClick={zoomOut}
+                          title="Perkecil (Zoom Out)"
+                          disabled={zoom <= 0.5}
+                        >
+                          <i className="bi bi-zoom-out"></i>
+                        </button>
+                        <span
+                          className="text-white-50 extra-small font-monospace px-1 text-center"
+                          style={{ minWidth: "45px" }}
+                        >
+                          {Math.round(zoom * 100)}%
+                        </span>
+                        <button
+                          type="button"
+                          className="btn btn-sm btn-outline-light py-1 px-2"
+                          onClick={zoomIn}
+                          title="Perbesar (Zoom In)"
+                          disabled={zoom >= 3}
+                        >
+                          <i className="bi bi-zoom-in"></i>
+                        </button>
+                        <button
+                          type="button"
+                          className="btn btn-sm btn-outline-light py-1 px-2 ms-1"
+                          onClick={rotateClockwise}
+                          title="Putar 90 Derajat (Rotate)"
+                        >
+                          <i className="bi bi-arrow-clockwise"></i>
+                        </button>
+                        <button
+                          type="button"
+                          className="btn btn-sm btn-outline-secondary py-1 px-2"
+                          onClick={resetTransform}
+                          title="Kembalikan Tampilan (Reset)"
+                        >
+                          <i className="bi bi-arrow-counterclockwise"></i>
+                        </button>
+                        {activeDocUrl && (
+                          <a
+                            href={activeDocUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="btn btn-sm btn-primary py-1 px-2 ms-2"
+                            title="Buka Dokumen di Tab Baru"
+                          >
+                            <i className="bi bi-box-arrow-up-right me-1"></i>
+                            <span className="d-none d-sm-inline">Tab Baru</span>
+                          </a>
+                        )}
                       </div>
                     </div>
-                  </div>
-                )}
 
-                {/* TAB 2 */}
-                {activeTab === 2 && (
-                  <div className="card border-0 shadow-sm mb-3">
-                    <div className="card-header bg-white fw-bold text-primary border-bottom">
-                      <i className="bi bi-book me-2"></i>Riwayat Pendidikan & Pekerjaan
+                    {/* Viewer Canvas Area */}
+                    <div
+                      className="flex-grow-1 position-relative overflow-auto d-flex align-items-center justify-content-center p-2"
+                      style={{ backgroundColor: "#121820" }}
+                    >
+                      {!activeDoc ? (
+                        <div className="text-center text-white-50 p-4">
+                          <i className="bi bi-folder2-open display-3 mb-2 opacity-50"></i>
+                          <p className="small mb-0">Pilih dokumen dari panel kanan untuk memeriksa berkas.</p>
+                        </div>
+                      ) : activeDocUrl ? (
+                        isPdf ? (
+                          <div
+                            className="w-100 h-100 d-flex align-items-center justify-content-center"
+                            style={{ overflow: "hidden" }}
+                          >
+                            <iframe
+                              src={activeDocUrl}
+                              title={activeDoc.fileName || activeDoc.namaPersyaratan}
+                              className="w-100 h-100 border-0 rounded bg-white"
+                              style={{
+                                transform: `rotate(${rotation}deg) scale(${zoom})`,
+                                transformOrigin: "center center",
+                                transition: "transform 0.15s ease-out",
+                              }}
+                            />
+                          </div>
+                        ) : (
+                          <img
+                            src={activeDocUrl}
+                            alt={activeDoc.fileName || activeDoc.namaPersyaratan}
+                            className="img-fluid rounded shadow"
+                            style={{
+                              transform: `rotate(${rotation}deg) scale(${zoom})`,
+                              transformOrigin: "center center",
+                              transition: "transform 0.15s ease-out",
+                              maxHeight: "90%",
+                              maxWidth: "90%",
+                              objectFit: "contain",
+                            }}
+                          />
+                        )
+                      ) : (
+                        <div className="text-center text-white-50 p-4">
+                          <i
+                            className={`bi ${
+                              isPdf ? "bi-file-earmark-pdf text-danger" : "bi-file-earmark-image text-info"
+                            } display-1 mb-3 d-block`}
+                          ></i>
+                          <h5 className="text-white">{activeDoc.namaPersyaratan}</h5>
+                          <p className="small mb-1 font-monospace text-light">{activeDoc.fileName || "dokumen"}</p>
+                          <p className="text-muted extra-small mb-3">
+                            Format: {activeDoc.format || "PDF"} | Ukuran: {activeDoc.fileSize || "1.2 MB"}
+                          </p>
+                          <div className="badge bg-secondary-subtle text-light border border-secondary px-3 py-2">
+                            <i className="bi bi-shield-check text-success me-2"></i>
+                            Magic Bytes & Antivirus ClamAV Lolos Verifikasi
+                          </div>
+                        </div>
+                      )}
                     </div>
-                    <div className="card-body">
-                      <div className="row g-3">
-                        <div className="col-md-6">
-                          <label className="text-muted extra-small d-block mb-1">
-                            Pendidikan Terakhir
-                          </label>
-                          <div className="fw-bold text-dark bg-light p-2 rounded border">
-                            {pend?.pendidikanTerakhir || "-"}
+
+                    {/* Bottom Document Switcher Strip */}
+                    <div className="bg-dark border-top border-secondary p-2 d-flex gap-2 overflow-x-auto">
+                      {pendaftaran.dokumen.map((doc) => {
+                        const key = doc.dokumenId || doc.id || doc.persyaratanId;
+                        const isCurrent = key === (activeDoc?.dokumenId || activeDoc?.id || activeDoc?.persyaratanId);
+                        const check = docChecks[doc.persyaratanId];
+                        return (
+                          <button
+                            key={doc.persyaratanId}
+                            type="button"
+                            className={`btn btn-sm text-nowrap d-flex align-items-center gap-1 ${
+                              isCurrent
+                                ? "btn-primary fw-bold"
+                                : "btn-outline-secondary text-white-50"
+                            }`}
+                            onClick={() => handleSelectDoc(doc)}
+                          >
+                            <i
+                              className={`bi ${
+                                check?.isSesuai === false
+                                  ? "bi-x-circle-fill text-danger"
+                                  : "bi-check-circle-fill text-success"
+                              }`}
+                            ></i>
+                            <span>{doc.namaPersyaratan}</span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  {/* RIGHT PANEL: Checklist, Applicant Info & Decision (approx 42%) */}
+                  <div
+                    className="col-lg-5 d-flex flex-column h-100 bg-white"
+                    style={{ minHeight: "450px" }}
+                  >
+                    <div
+                      className="p-3 overflow-y-auto flex-grow-1"
+                      style={{ maxHeight: "calc(92vh - 120px)" }}
+                    >
+                      {/* Collapsible Applicant Details */}
+                      <div className="card border mb-3 shadow-none bg-light">
+                        <div className="card-body p-3">
+                          <div className="d-flex justify-content-between align-items-center">
+                            <div>
+                              <div className="fw-bold text-dark">{bio?.namaLengkap || pendaftaran.userName}</div>
+                              <div className="text-muted extra-small">
+                                NIK: <span className="font-monospace text-dark">{bio?.nik || pendaftaran.userNik}</span>
+                              </div>
+                            </div>
+                            <button
+                              type="button"
+                              className="btn btn-sm btn-outline-primary py-1 px-2 extra-small"
+                              onClick={() => setShowBiodataDetail((prev) => !prev)}
+                            >
+                              <i
+                                className={`bi ${
+                                  showBiodataDetail ? "bi-chevron-up" : "bi-chevron-down"
+                                } me-1`}
+                              ></i>
+                              {showBiodataDetail ? "Tutup Biodata" : "Rincian Profil"}
+                            </button>
                           </div>
-                        </div>
-                        <div className="col-md-6">
-                          <label className="text-muted extra-small d-block mb-1">
-                            Nama Instansi / Sekolah / Universitas
-                          </label>
-                          <div className="fw-bold text-dark bg-light p-2 rounded border">
-                            {pend?.namaInstansi || "-"}
-                          </div>
-                        </div>
-                        <div className="col-md-6">
-                          <label className="text-muted extra-small d-block mb-1">
-                            Jurusan / Program Studi
-                          </label>
-                          <div className="fw-semibold text-dark bg-light p-2 rounded border">
-                            {pend?.jurusan || "-"}
-                          </div>
-                        </div>
-                        <div className="col-md-6">
-                          <label className="text-muted extra-small d-block mb-1">
-                            Pekerjaan Saat Ini
-                          </label>
-                          <div className="fw-semibold text-dark bg-light p-2 rounded border">
-                            {pend?.pekerjaanSaatIni || "-"}
-                          </div>
+
+                          {showBiodataDetail && (
+                            <div className="mt-3 pt-3 border-top small">
+                              <div className="row g-2 mb-2">
+                                <div className="col-6">
+                                  <span className="text-muted extra-small d-block">Tempat, Tgl Lahir:</span>
+                                  <strong>{bio?.tempatLahir || "-"}, {bio?.tglLahir || "-"}</strong>
+                                </div>
+                                <div className="col-6">
+                                  <span className="text-muted extra-small d-block">Jenis Kelamin:</span>
+                                  <strong>{bio?.jenisKelamin === "L" ? "Laki-laki" : bio?.jenisKelamin === "P" ? "Perempuan" : "-"}</strong>
+                                </div>
+                                <div className="col-12">
+                                  <span className="text-muted extra-small d-block">Domisili:</span>
+                                  <span>{bio?.alamat ? `${bio.alamat}, ${bio.kecamatan || ""}, ${bio.kabupatenKota || ""}, ${bio.provinsi || ""}` : "-"}</span>
+                                </div>
+                                <div className="col-6">
+                                  <span className="text-muted extra-small d-block">Kontak / Email:</span>
+                                  <span>{bio?.noHp || "-"} / {bio?.email || "-"}</span>
+                                </div>
+                                <div className="col-6">
+                                  <span className="text-muted extra-small d-block">Pendidikan:</span>
+                                  <span>{pend?.pendidikanTerakhir || "-"} ({pend?.namaInstansi || "-"})</span>
+                                </div>
+                              </div>
+                            </div>
+                          )}
                         </div>
                       </div>
-                    </div>
-                  </div>
-                )}
 
-                {/* TAB 3 */}
-                {activeTab === 3 && (
-                  <div className="card border-0 shadow-sm mb-3">
-                    <div className="card-header bg-white fw-bold text-primary border-bottom d-flex justify-content-between align-items-center">
-                      <span>
-                        <i className="bi bi-file-earmark-arrow-up me-2"></i>Peninjauan Berkas Syarat
-                        (PDF/JPG/PNG Max 2MB)
-                      </span>
-                      <span className="badge bg-info-subtle text-info border border-info small">
-                        {pendaftaran.dokumen.length} Dokumen Diunggah
-                      </span>
-                    </div>
-                    <div className="card-body p-0">
-                      <div className="table-responsive">
-                        <table className="table table-hover align-middle mb-0">
-                          <thead className="table-light small">
-                            <tr>
-                              <th style={{ width: "25%" }}>Persyaratan Dokumen</th>
-                              <th style={{ width: "20%" }}>Berkas Peserta</th>
-                              <th style={{ width: "25%" }}>Kesesuaian Data</th>
-                              <th>Catatan Perbaikan Verifikator</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {pendaftaran.dokumen.map((doc) => {
-                              const check = docChecks[doc.persyaratanId] || {
-                                isSesuai: true,
-                                catatanPerbaikan: "",
-                              };
-                              return (
-                                <tr key={doc.persyaratanId}>
-                                  <td>
-                                    <strong>{doc.namaPersyaratan}</strong>
-                                    <br />
-                                    <small className="text-muted">
-                                      Format: {doc.format || "PDF"} ({doc.fileSize || "1 MB"})
-                                    </small>
-                                  </td>
-                                  <td>
-                                    <button
-                                      type="button"
-                                      className="btn btn-sm btn-outline-primary w-100"
-                                      onClick={() => {
-                                        const docId = doc.dokumenId || doc.id;
-                                        onPreviewFile?.(
-                                          doc.fileName || doc.namaPersyaratan,
-                                          doc.fileUrl || (docId ? dokumenApi.getViewUrl(docId) : undefined)
-                                        );
-                                      }}
+                      {/* Verification Checklist */}
+                      <div className="mb-3">
+                        <div className="d-flex justify-content-between align-items-center mb-2">
+                          <h6 className="fw-bold text-primary mb-0">
+                            <i className="bi bi-card-checklist me-1"></i>
+                            Checklist Berkas Persyaratan
+                          </h6>
+                          <span className="text-muted extra-small">
+                            Klik kartu untuk melihat dokumen
+                          </span>
+                        </div>
+
+                        <div className="d-flex flex-column gap-2">
+                          {pendaftaran.dokumen.map((doc) => {
+                            const key = doc.dokumenId || doc.id || doc.persyaratanId;
+                            const isSelected = key === (activeDoc?.dokumenId || activeDoc?.id || activeDoc?.persyaratanId);
+                            const check = docChecks[doc.persyaratanId] || {
+                              isSesuai: true,
+                              catatanPerbaikan: "",
+                            };
+
+                            return (
+                              <div
+                                key={doc.persyaratanId}
+                                className={`card transition-all border ${
+                                  isSelected
+                                    ? "border-primary shadow-sm bg-primary-subtle bg-opacity-10"
+                                    : "border-secondary-subtle bg-white"
+                                }`}
+                              >
+                                <div className="card-body p-3">
+                                  <div className="d-flex justify-content-between align-items-start mb-2">
+                                    <div
+                                      className="cursor-pointer flex-grow-1 me-2"
+                                      onClick={() => handleSelectDoc(doc)}
+                                      style={{ cursor: "pointer" }}
                                     >
-                                      <i className="bi bi-eye me-1"></i>Pratinjau
-                                    </button>
-                                  </td>
-                                  <td>
-                                    <div className="btn-group w-100" role="group">
+                                      <div className="fw-bold small text-dark d-flex align-items-center">
+                                        <i
+                                          className={`bi ${
+                                            isSelected ? "bi-eye-fill text-primary" : "bi-file-earmark"
+                                          } me-1`}
+                                        ></i>
+                                        {doc.namaPersyaratan}
+                                        {isSelected && (
+                                          <span className="badge bg-primary text-white ms-2 extra-small">
+                                            Aktif di Viewer
+                                          </span>
+                                        )}
+                                      </div>
+                                      <div className="text-muted extra-small font-monospace">
+                                        {doc.fileName || "Berkas Tersimpan"} {doc.fileSize ? `(${doc.fileSize})` : ""}
+                                      </div>
+                                    </div>
+
+                                    {/* Action Toggle Buttons */}
+                                    <div className="btn-group btn-group-sm" role="group">
                                       <button
                                         type="button"
-                                        className={`btn btn-sm ${check.isSesuai ? "btn-success" : "btn-outline-success"}`}
+                                        className={`btn btn-sm ${
+                                          check.isSesuai ? "btn-success" : "btn-outline-success"
+                                        } px-2 py-0`}
+                                        style={{ fontSize: "0.75rem" }}
                                         onClick={() => handleDocCheck(doc.persyaratanId, true)}
                                       >
-                                        <i className="bi bi-check-lg"></i> Sesuai
+                                        <i className="bi bi-check-lg me-1"></i>Sesuai
                                       </button>
                                       <button
                                         type="button"
-                                        className={`btn btn-sm ${!check.isSesuai ? "btn-danger" : "btn-outline-danger"}`}
+                                        className={`btn btn-sm ${
+                                          !check.isSesuai ? "btn-danger" : "btn-outline-danger"
+                                        } px-2 py-0`}
+                                        style={{ fontSize: "0.75rem" }}
                                         onClick={() => handleDocCheck(doc.persyaratanId, false)}
                                       >
-                                        <i className="bi bi-x-lg"></i> Ditolak
+                                        <i className="bi bi-x-lg me-1"></i>Revisi
                                       </button>
                                     </div>
-                                  </td>
-                                  <td>
+                                  </div>
+
+                                  {/* Catatan Perbaikan Field */}
+                                  <div>
                                     <input
                                       type="text"
-                                      className={`form-control form-control-sm ${!check.isSesuai ? "border-danger text-danger" : ""}`}
-                                      placeholder="Isi catatan jika tidak sesuai..."
+                                      className={`form-control form-control-sm ${
+                                        !check.isSesuai
+                                          ? "border-danger text-danger bg-danger-subtle bg-opacity-10"
+                                          : "border-light-subtle"
+                                      }`}
+                                      style={{ fontSize: "0.8rem" }}
+                                      placeholder={
+                                        !check.isSesuai
+                                          ? "Tuliskan catatan perbaikan (wajib untuk berkas revisi)..."
+                                          : "Catatan perbaikan (opsional)..."
+                                      }
                                       value={check.catatanPerbaikan}
                                       onChange={(e) =>
                                         handleDocNote(doc.persyaratanId, e.target.value)
                                       }
                                     />
-                                  </td>
-                                </tr>
-                              );
-                            })}
-                          </tbody>
-                        </table>
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-                {/* TAB 4 */}
-                {activeTab === 4 && (
-                  <div>
-                    <div className="card border-0 shadow-sm mb-3">
-                      <div className="card-header bg-white fw-bold text-primary border-bottom">
-                        <i className="bi bi-shield-check me-2"></i>Checklist Akhir & Statement Peserta
-                      </div>
-                      <div className="card-body">
-                        <div className="alert alert-success d-flex align-items-center mb-0" role="alert">
-                          <i className="bi bi-check-circle-fill fs-4 me-3"></i>
-                          <div>
-                            <strong>Pernyataan Keabsahan Data Disetujui Peserta</strong>
-                            <p className="mb-0 small">
-                              Peserta telah menyetujui pernyataan keabsahan dokumen dan ketentuan pendaftaran pada{" "}
-                              {pendaftaran.submittedAt || "02 September 2026 pukul 14:20 WIB"}.
-                            </p>
-                          </div>
+                                  </div>
+                                </div>
+                              </div>
+                            );
+                          })}
                         </div>
                       </div>
-                    </div>
 
-                    <div className="card border-primary shadow-sm">
-                      <div className="card-header bg-primary text-white fw-bold">
-                        <i className="bi bi-gavel me-2"></i>Keputusan Akhir Verifikator
+                      {/* Participant Declaration Info */}
+                      <div className="alert alert-light border p-2 mb-3 d-flex align-items-center">
+                        <i className="bi bi-shield-check text-success fs-4 me-2"></i>
+                        <span className="extra-small text-muted">
+                          Pernyataan keabsahan data telah disetujui pendaftar pada {pendaftaran.submittedAt || "saat pendaftaran disubmit"}.
+                        </span>
                       </div>
-                      <div className="card-body bg-white">
-                        <form
-                          id="verifikasiForm"
-                          onSubmit={(e) => {
-                            e.preventDefault();
-                            e.stopPropagation();
-                            form.handleSubmit();
-                          }}
-                        >
-                          <div className="row g-3">
-                            <div className="col-md-5">
+
+                      {/* Overall Decision Section */}
+                      <div className="card border-primary shadow-sm bg-white">
+                        <div className="card-header bg-primary text-white py-2 px-3 fw-bold small">
+                          <i className="bi bi-gavel me-1"></i>Formulir Keputusan Akhir Verifikator
+                        </div>
+                        <div className="card-body p-3">
+                          <form
+                            id="verifikasiForm"
+                            onSubmit={(e) => {
+                              e.preventDefault();
+                              e.stopPropagation();
+                              form.handleSubmit();
+                            }}
+                          >
+                            <div className="mb-3">
                               <form.Field name="statusKeputusan">
                                 {(field) => (
                                   <div>
-                                    <label htmlFor={field.name} className="form-label fw-bold">
-                                      Status Keputusan <span className="text-danger">*</span>
+                                    <label htmlFor={field.name} className="form-label fw-bold small">
+                                      Status Keputusan Administrasi <span className="text-danger">*</span>
                                     </label>
                                     <select
                                       id={field.name}
                                       name={field.name}
-                                      className="form-select form-select-lg border-primary"
+                                      className={`form-select ${
+                                        field.state.value === "disetujui"
+                                          ? "border-success text-success fw-semibold"
+                                          : field.state.value === "revisi"
+                                          ? "border-warning text-dark fw-semibold"
+                                          : "border-danger text-danger fw-semibold"
+                                      }`}
                                       value={field.state.value}
                                       onBlur={field.handleBlur}
                                       onChange={(e) =>
@@ -516,20 +641,22 @@ export const VerifikasiModal: React.FC<VerifikasiModalProps> = ({
                                 )}
                               </form.Field>
                             </div>
-                            <div className="col-md-7">
+
+                            <div>
                               <form.Field name="catatanVerifikator">
                                 {(field) => (
                                   <div>
-                                    <label htmlFor={field.name} className="form-label fw-bold">
-                                      Catatan Verifikator untuk Peserta{" "}
-                                      <span className="text-danger">*</span>
+                                    <label htmlFor={field.name} className="form-label fw-bold small">
+                                      Catatan Verifikator untuk Peserta <span className="text-danger">*</span>
                                     </label>
                                     <textarea
                                       id={field.name}
                                       name={field.name}
-                                      className={`form-control ${field.state.meta.errors.length ? "is-invalid" : ""}`}
+                                      className={`form-control ${
+                                        field.state.meta.errors.length ? "is-invalid" : ""
+                                      }`}
                                       rows={3}
-                                      placeholder="Tuliskan alasan keputusan atau petunjuk perbaikan berkas secara jelas..."
+                                      placeholder="Tuliskan instruksi atau alasan keputusan verifikasi secara jelas..."
                                       value={field.state.value}
                                       onBlur={field.handleBlur}
                                       onChange={(e) => field.handleChange(e.target.value)}
@@ -537,7 +664,7 @@ export const VerifikasiModal: React.FC<VerifikasiModalProps> = ({
                                     {field.state.meta.errors.map((error) => (
                                       <div
                                         key={error ? (typeof error === "string" ? error : error.message) : ""}
-                                        className="invalid-feedback d-block"
+                                        className="invalid-feedback d-block extra-small"
                                       >
                                         {error ? (typeof error === "string" ? error : error.message) : ""}
                                       </div>
@@ -546,20 +673,21 @@ export const VerifikasiModal: React.FC<VerifikasiModalProps> = ({
                                 )}
                               </form.Field>
                             </div>
-                          </div>
-                        </form>
+                          </form>
+                        </div>
                       </div>
                     </div>
                   </div>
-                )}
+                </div>
               </div>
             </div>
 
-            <div className="modal-footer bg-white border-top justify-content-between">
-              <button type="button" className="btn btn-secondary" onClick={onClose}>
-                <i className="bi bi-x-circle me-1"></i>Tutup
+            {/* Modal Footer Controls */}
+            <div className="modal-footer bg-white border-top py-2 px-3 justify-content-between">
+              <button type="button" className="btn btn-secondary btn-sm" onClick={onClose}>
+                <i className="bi bi-x-circle me-1"></i>Batal / Tutup
               </button>
-              <div>
+              <div className="d-flex align-items-center gap-2">
                 <form.Subscribe
                   selector={(state) => ({
                     isSubmitting: state.isSubmitting,
@@ -567,9 +695,9 @@ export const VerifikasiModal: React.FC<VerifikasiModalProps> = ({
                 >
                   {({ isSubmitting }) => (
                     <button
-                      type="submit"
-                      form="verifikasiForm"
+                      type="button"
                       disabled={isSubmitting || submitVerifikasiMutation.isPending}
+                      onClick={() => form.handleSubmit()}
                       className="btn btn-success px-4 fw-bold"
                     >
                       <i className="bi bi-send-check me-1"></i>

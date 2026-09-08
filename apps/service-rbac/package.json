@@ -17,6 +17,7 @@
   },
   "dependencies": {
     "@beasiswaapp/contracts": "workspace:*",
+    "@fastify/cookie": "^11.1.2",
     "@fastify/cors": "^11.3.0",
     "@prisma/adapter-mariadb": "^7.9.1",
     "@prisma/client": "^7.9.1",
