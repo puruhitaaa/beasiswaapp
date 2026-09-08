@@ -11,6 +11,7 @@ export interface ApiUser {
   name: string;
   email: string;
   role: "applicant" | "verifikator" | "interviewer" | "admin";
+  nik?: string;
 }
 
 export function getStoredToken(): string | null {
@@ -102,8 +103,12 @@ export const authApi = {
       method: "POST",
       body: JSON.stringify(data),
     });
-    setStoredSession(res.token, res.user);
-    return res;
+    const userWithNik: ApiUser = {
+      ...res.user,
+      nik: data.nik || res.user?.nik,
+    };
+    setStoredSession(res.token, userWithNik);
+    return { ...res, token: res.token, user: userWithNik };
   },
 
   async login(

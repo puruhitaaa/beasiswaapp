@@ -31,6 +31,7 @@ interface AppState {
     name: string;
     email: string;
     role: "applicant" | "verifikator" | "interviewer" | "admin";
+    nik?: string;
   } | null;
   programs: BeasiswaProgram[];
   applications: PendaftaranRecord[];
@@ -154,18 +155,37 @@ class AppStore {
     }
 
     const count = this.state.applications.length + 1;
+    const userNik =
+      user.nik ||
+      (user.id.startsWith("user-") ? user.id.replace("user-", "") : "") ||
+      "3201123456780001";
+
     const newRecord: PendaftaranRecord = {
       id: `prm-${Date.now()}`,
       kodePermohonan: `REG-2026-0900${count}`,
       userId: user.id,
       userName: user.name,
-      userNik: "3201123456780001",
+      userNik,
       beasiswaId,
       beasiswaNama: programName,
       beasiswaMetode: metode || "Daring",
       status: "DRAFT",
       stepWizardTerakhir: 1,
       tipePengajuan: "Baru Submit",
+      biodata: {
+        nik: userNik,
+        namaLengkap: user.name,
+        email: user.email,
+        tempatLahir: "",
+        tglLahir: "",
+        jenisKelamin: "",
+        alamat: "",
+        provinsi: "",
+        kabupatenKota: "",
+        kecamatan: "",
+        kelurahan: "",
+        noHp: "",
+      },
       dokumen: [
         {
           persyaratanId: "req-ktp",

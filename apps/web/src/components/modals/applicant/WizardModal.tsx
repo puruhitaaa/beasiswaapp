@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import { useForm } from "@tanstack/react-form";
 import { toast } from "sonner";
 import { z } from "zod";
-import { appStore } from "@/lib/store";
+import { appStore, useCurrentUser } from "@/lib/store";
 import {
   useSaveStep1Mutation,
   useSaveStep2Mutation,
@@ -109,11 +109,31 @@ export const WizardModal: React.FC<WizardModalProps> = ({
         ]
   );
 
+  const currentUser = useCurrentUser();
+
+  const resolvedNik =
+    (pendaftaran.biodata?.nik && pendaftaran.biodata.nik !== "-" ? pendaftaran.biodata.nik : "") ||
+    (pendaftaran.userNik && pendaftaran.userNik !== "-" ? pendaftaran.userNik : "") ||
+    currentUser?.nik ||
+    (currentUser?.id?.startsWith("user-") ? currentUser.id.replace("user-", "") : "") ||
+    "";
+
+  const resolvedNama =
+    (pendaftaran.biodata?.namaLengkap && pendaftaran.biodata.namaLengkap !== "-" ? pendaftaran.biodata.namaLengkap : "") ||
+    (pendaftaran.userName && pendaftaran.userName !== "-" ? pendaftaran.userName : "") ||
+    currentUser?.name ||
+    "";
+
+  const resolvedEmail =
+    pendaftaran.biodata?.email ||
+    currentUser?.email ||
+    "";
+
   const form = useForm({
     defaultValues: {
       biodata: {
-        nik: pendaftaran.biodata?.nik || pendaftaran.userNik || "",
-        namaLengkap: pendaftaran.biodata?.namaLengkap || pendaftaran.userName || "",
+        nik: resolvedNik,
+        namaLengkap: resolvedNama,
         tempatLahir: pendaftaran.biodata?.tempatLahir || "",
         tglLahir: pendaftaran.biodata?.tglLahir || "",
         jenisKelamin: (pendaftaran.biodata?.jenisKelamin || "") as "L" | "P" | "",
@@ -123,7 +143,7 @@ export const WizardModal: React.FC<WizardModalProps> = ({
         kecamatan: pendaftaran.biodata?.kecamatan || "",
         kelurahan: pendaftaran.biodata?.kelurahan || "",
         noHp: pendaftaran.biodata?.noHp || "",
-        email: pendaftaran.biodata?.email || "",
+        email: resolvedEmail,
       },
       pendidikan: {
         pendidikanTerakhir: pendaftaran.pendidikan?.pendidikanTerakhir || "",

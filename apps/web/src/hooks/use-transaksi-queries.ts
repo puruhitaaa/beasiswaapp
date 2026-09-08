@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { transaksiApi } from "@/lib/api";
+import { transaksiApi, getStoredUser } from "@/lib/api";
 import { queryKeys } from "@/lib/query-client";
 import type {
   ApplicationStatus,
@@ -16,12 +16,27 @@ export function useMyActiveApplication() {
       try {
         const appRes = await transaksiApi.getMyActive();
         if (appRes && appRes.id) {
+          const currentUser = getStoredUser();
+          const resolvedNik =
+            (appRes.biodata?.nik && appRes.biodata.nik !== "-" ? appRes.biodata.nik : "") ||
+            currentUser?.nik ||
+            (appRes.userId?.startsWith("user-") ? appRes.userId.replace("user-", "") : "") ||
+            "-";
+          const resolvedName =
+            (appRes.biodata?.namaLengkap && appRes.biodata.namaLengkap !== "-" ? appRes.biodata.namaLengkap : "") ||
+            currentUser?.name ||
+            "-";
+          const resolvedEmail =
+            appRes.biodata?.email ||
+            currentUser?.email ||
+            "";
+
           const mapped: PendaftaranRecord = {
             id: appRes.id,
             kodePermohonan: appRes.kodePermohonan,
             userId: appRes.userId,
-            userName: appRes.biodata?.namaLengkap || "-",
-            userNik: appRes.biodata?.nik || "-",
+            userName: resolvedName,
+            userNik: resolvedNik,
             beasiswaId: appRes.beasiswaId,
             beasiswaNama: appRes.beasiswaNamaSnapshot || "-",
             beasiswaMetode: "Daring",
@@ -35,7 +50,37 @@ export function useMyActiveApplication() {
                 })
               : undefined,
             tipePengajuan: appRes.status === "REVISI" ? "Hasil Revisi" : "Baru Submit",
-            biodata: appRes.biodata,
+            biodata: appRes.biodata
+              ? {
+                  ...appRes.biodata,
+                  nik:
+                    appRes.biodata.nik && appRes.biodata.nik !== "-"
+                      ? appRes.biodata.nik
+                      : resolvedNik !== "-"
+                      ? resolvedNik
+                      : "",
+                  namaLengkap:
+                    appRes.biodata.namaLengkap && appRes.biodata.namaLengkap !== "-"
+                      ? appRes.biodata.namaLengkap
+                      : resolvedName !== "-"
+                      ? resolvedName
+                      : "",
+                  email: appRes.biodata.email || resolvedEmail,
+                }
+              : {
+                  nik: resolvedNik !== "-" ? resolvedNik : "",
+                  namaLengkap: resolvedName !== "-" ? resolvedName : "",
+                  email: resolvedEmail,
+                  tempatLahir: "",
+                  tglLahir: "",
+                  jenisKelamin: "" as const,
+                  alamat: "",
+                  provinsi: "",
+                  kabupatenKota: "",
+                  kecamatan: "",
+                  kelurahan: "",
+                  noHp: "",
+                },
             pendidikan: appRes.pendidikan,
             dokumen:
               appRes.dokumen && appRes.dokumen.length > 0

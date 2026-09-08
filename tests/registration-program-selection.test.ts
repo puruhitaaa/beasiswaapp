@@ -93,4 +93,33 @@ describe("Applicant Registration & Program Selection Flow", () => {
       appStore.initApplication("prog-web", "Pelatihan Web Developer Specialist");
     }).toThrow(/Batas pendaftaran tercapai/);
   });
+
+  it("pre-fills NIK and namaLengkap with values from registration instead of '-'", () => {
+    const registeredNik = "3201998877665544";
+    const registeredName = "Ahmad Dahlan";
+    const registeredEmail = "ahmad.dahlan@example.com";
+
+    appStore.setCurrentUser({
+      id: `user-${registeredNik}`,
+      name: registeredName,
+      email: registeredEmail,
+      role: "applicant",
+      nik: registeredNik,
+    });
+
+    const app = appStore.initApplication("prog-data", "Pelatihan Data Analyst & SQL");
+
+    // Verify NIK and Nama Lengkap are populated from registration values
+    expect(app.userNik).toBe(registeredNik);
+    expect(app.userName).toBe(registeredName);
+    expect(app.biodata?.nik).toBe(registeredNik);
+    expect(app.biodata?.namaLengkap).toBe(registeredName);
+    expect(app.biodata?.email).toBe(registeredEmail);
+
+    // Verify neither NIK nor Nama Lengkap defaults to "-"
+    expect(app.userNik).not.toBe("-");
+    expect(app.userName).not.toBe("-");
+    expect(app.biodata?.nik).not.toBe("-");
+    expect(app.biodata?.namaLengkap).not.toBe("-");
+  });
 });

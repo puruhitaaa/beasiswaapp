@@ -84,7 +84,11 @@ fastify.post("/api/auth/register", async (request, reply) => {
     });
 
     const token = await generateToken(user);
-    return reply.status(201).send({ token, user });
+    const userWithNik = {
+      ...user,
+      nik: nik || (user.id.startsWith("user-") ? user.id.replace("user-", "") : undefined),
+    };
+    return reply.status(201).send({ token, user: userWithNik });
   } catch (err: any) {
     fastify.log.error({ err }, "Registration error:");
     return reply.status(500).send({ error: err.message || "Gagal mendaftarkan akun." });
