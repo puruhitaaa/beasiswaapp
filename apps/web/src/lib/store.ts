@@ -483,10 +483,6 @@ class AppStore {
     };
   }
 
-  getAllApplications() {
-    return this.state.applications;
-  }
-
   // Master Beasiswa CRUD
   addBeasiswa(program: Omit<BeasiswaProgram, "id">) {
     const newProg: BeasiswaProgram = {
