@@ -8,6 +8,6 @@ export default defineConfig({
   datasource: {
     url:
       process.env.DATABASE_URL ||
-      "mysql://user:password@localhost:3306/rbac_db",
+      "mysql://rbac_user:password@localhost:3306/rbac_db",
   },
 });

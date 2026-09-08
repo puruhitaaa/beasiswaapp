@@ -13,7 +13,7 @@ Arsitektur sistem ini menerapkan prinsip rekonsiliasi yang memadukan kecepatan p
    - Setiap servis (`apps/api-gateway`, `apps/service-rbac`, `apps/service-master`, `apps/service-transaksi`, `apps/service-dokumen`, `apps/web`) bersifat mandiri:
      - Memiliki `package.json`, `tsconfig.json`, `Dockerfile`, dan skema database `prisma/schema.prisma` tersendiri.
      - **Larangan Impor Silang:** Dilarang keras mengimpor berkas langsung dari direktori servis lain (`apps/service-a` tidak boleh mengimpor dari `apps/service-b`).
-     - Komunikasi data hanya dilakukan via HTTP REST melalui API Gateway.
+     - **Pola Komunikasi Terstandarisasi:** Seluruh komunikasi dari klien web eksternal wajib melalui API Gateway (Edge Gateway). Komunikasi antar-layanan (inter-service) dilakukan secara privat via HTTP REST internal menggunakan autentikasi header `X-Internal-Secret` di dalam Private Docker Network / Service Mesh tanpa memutar balik ke API Gateway.
      - Kontrak data dan enum bersama didefinisikan secara bersih pada `packages/contracts`.
 
 2. **Fase Rilis & Delivery Produksi (Multi-Repo Extraction):**

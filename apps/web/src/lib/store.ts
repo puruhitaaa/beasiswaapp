@@ -285,7 +285,7 @@ class AppStore {
   saveStep3(applicationId: string, dokumen: DokumenUploadItem[]) {
     this.state.applications = this.state.applications.map((app) => {
       if (app.id === applicationId) {
-        const nextStep = Math.max(app.stepWizardTerakhir, 3);
+        const nextStep = Math.max(app.stepWizardTerakhir, 4);
         return {
           ...app,
           dokumen,
@@ -611,7 +611,7 @@ class AppStore {
   }
 
   // Reset to initial clean state
-  resetToDefaults() {
+  resetToDefaults(clearApplications = false) {
     if (typeof window !== "undefined") {
       try {
         localStorage.removeItem("beasiswaapp_auth_user");
@@ -624,7 +624,9 @@ class AppStore {
     this.state = {
       currentUser: null,
       programs: JSON.parse(JSON.stringify(initialPrograms)),
-      applications: JSON.parse(JSON.stringify(initialPendaftaranList)),
+      applications: clearApplications
+        ? []
+        : JSON.parse(JSON.stringify(initialPendaftaranList)),
       internalUsers: JSON.parse(JSON.stringify(initialInternalUsers)),
       persyaratan: JSON.parse(JSON.stringify(initialPersyaratan)),
       roles: JSON.parse(JSON.stringify(initialRoles)),

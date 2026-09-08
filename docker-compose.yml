@@ -81,7 +81,7 @@ services:
       - "3001"
     environment:
       PORT: 3001
-      DATABASE_URL: mysql://user:${MYSQL_PASSWORD:-password}@mysql:3306/rbac_db
+      DATABASE_URL: mysql://rbac_user:${MYSQL_PASSWORD:-password}@mysql:3306/rbac_db
       BETTER_AUTH_SECRET: ${BETTER_AUTH_SECRET:-default-secret-key-min-32-chars-fallback}
       BETTER_AUTH_URL: http://localhost:3000/api/auth
       CORS_ORIGIN: http://localhost:3001
@@ -115,7 +115,7 @@ services:
       - "3002"
     environment:
       PORT: 3002
-      DATABASE_URL: mysql://user:${MYSQL_PASSWORD:-password}@mysql:3306/master_db
+      DATABASE_URL: mysql://master_user:${MYSQL_PASSWORD:-password}@mysql:3306/master_db
       INTERNAL_CLUSTER_SECRET: ${INTERNAL_CLUSTER_SECRET:-cluster-shared-secret-key}
     depends_on:
       mysql:
@@ -146,7 +146,7 @@ services:
       - "3003"
     environment:
       PORT: 3003
-      DATABASE_URL: mysql://user:${MYSQL_PASSWORD:-password}@mysql:3306/transaksi_db
+      DATABASE_URL: mysql://transaksi_user:${MYSQL_PASSWORD:-password}@mysql:3306/transaksi_db
       MASTER_SERVICE_URL: http://service-master:3002
       INTERNAL_CLUSTER_SECRET: ${INTERNAL_CLUSTER_SECRET:-cluster-shared-secret-key}
     depends_on:
@@ -216,8 +216,10 @@ services:
       MYSQL_DATABASE: rbac_db
       MYSQL_USER: user
       MYSQL_PASSWORD: ${MYSQL_PASSWORD:-password}
+    # Port mapping is strictly restricted to localhost loopback (127.0.0.1) for local dev/migration tools.
+    # Never exposed to external public interfaces (0.0.0.0), compliant with Section 10 security standards.
     ports:
-      - "3306:3306"
+      - "127.0.0.1:3306:3306"
     volumes:
       - beasiswa_mysql_data:/var/lib/mysql
       - ./docker/mysql/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
@@ -238,8 +240,9 @@ services:
       POSTGRES_DB: dokumen_db
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-password}
+    # Port mapping restricted to localhost loopback for dev tools
     ports:
-      - "${POSTGRES_PORT:-5433}:5432"
+      - "127.0.0.1:${POSTGRES_PORT:-5433}:5432"
     volumes:
       - beasiswa_postgres_data:/var/lib/postgresql/data
     healthcheck:

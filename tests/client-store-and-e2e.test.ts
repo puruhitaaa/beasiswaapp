@@ -3,7 +3,7 @@ import { appStore } from "../apps/web/src/lib/store";
 
 describe("Frontend Client Store & E2E Role Flow Simulation", () => {
   beforeAll(() => {
-    appStore.resetToDefaults();
+    appStore.resetToDefaults(true);
   });
 
   it("Applicant Flow: Init, 4-step wizard auto-save, and submission", () => {

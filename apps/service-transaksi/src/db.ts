@@ -4,7 +4,7 @@ import { PrismaClient } from "./generated/prisma/client.js";
 
 export function createPrismaClient() {
   const databaseUrl =
-    process.env.DATABASE_URL || "mysql://user:password@localhost:3306/transaksi_db";
+    process.env.DATABASE_URL || "mysql://transaksi_user:password@localhost:3306/transaksi_db";
   const url = new URL(databaseUrl);
   const connectionConfig = {
     host: url.hostname,

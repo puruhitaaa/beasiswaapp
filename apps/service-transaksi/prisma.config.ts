@@ -8,6 +8,6 @@ export default defineConfig({
   datasource: {
     url:
       process.env.DATABASE_URL ||
-      "mysql://user:password@localhost:3306/transaksi_db",
+      "mysql://transaksi_user:password@localhost:3306/transaksi_db",
   },
 });
