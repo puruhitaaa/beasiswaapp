@@ -287,8 +287,8 @@ export const WizardModal: React.FC<WizardModalProps> = ({
 
     try {
       const uploadRes = await uploadDokumenMutation.mutateAsync({
-        pendaftaranId: pendaftaran.id,
-        kodePermohonan: pendaftaran.kodePermohonan,
+        pendaftaranId: pendaftaran.id || "pending",
+        kodePermohonan: pendaftaran.kodePermohonan || "DRAFT",
         persyaratanId,
         file,
       });

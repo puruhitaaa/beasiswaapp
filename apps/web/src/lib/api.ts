@@ -333,12 +333,19 @@ export const transaksiApi = {
 export const dokumenApi = {
   async upload(pendaftaranId: string, kodePermohonan: string, persyaratanId: string, file: File) {
     const formData = new FormData();
-    formData.append("file", file);
+    // Non-file fields must precede file for streaming multipart parsers
+    formData.append("persyaratanId", persyaratanId);
     formData.append("pendaftaranId", pendaftaranId);
     formData.append("kodePermohonan", kodePermohonan);
-    formData.append("persyaratanId", persyaratanId);
+    formData.append("file", file);
 
-    return request<{ success: boolean; dokumen: any }>("/api/dokumen/upload", {
+    const query = new URLSearchParams({
+      persyaratanId: persyaratanId || "",
+      pendaftaranId: pendaftaranId || "",
+      kodePermohonan: kodePermohonan || "DRAFT",
+    }).toString();
+
+    return request<{ success: boolean; dokumen: any }>(`/api/dokumen/upload?${query}`, {
       method: "POST",
       body: formData,
     });

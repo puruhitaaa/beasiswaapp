@@ -62,28 +62,40 @@ fastify.post("/api/dokumen/upload", async (request: FastifyRequest, reply: Fasti
     return reply.status(401).send({ error: "Silakan masuk terlebih dahulu." });
   }
 
-  const data = await request.file();
-  if (!data) {
+  const query = (request.query || {}) as Record<string, string>;
+  const fields: Record<string, string> = { ...query };
+  let fileBuffer: Buffer | null = null;
+  let filename = "";
+  let mimetype = "";
+
+  for await (const part of request.parts()) {
+    if (part.type === "file") {
+      filename = part.filename;
+      mimetype = part.mimetype;
+      fileBuffer = await part.toBuffer();
+    } else {
+      fields[part.fieldname] = String(part.value ?? "");
+    }
+  }
+
+  if (!fileBuffer || !filename) {
     return reply.status(400).send({ error: "Berkas tidak ditemukan." });
   }
 
-  // Parse accompanying fields
-  const fields = data.fields as Record<string, any>;
-  const pendaftaranId = fields.pendaftaranId?.value as string;
-  const kodePermohonan = (fields.kodePermohonan?.value as string) || "DRAFT";
-  const persyaratanId = fields.persyaratanId?.value as string;
+  const pendaftaranId = fields.pendaftaranId || "pending";
+  const kodePermohonan = fields.kodePermohonan || "DRAFT";
+  const persyaratanId = fields.persyaratanId;
 
   if (!persyaratanId) {
     return reply.status(400).send({ error: "persyaratanId wajib disertakan." });
   }
 
-  // Buffer file for magic bytes, hash, and virus scanning
-  const buffer = await data.toBuffer();
+  const buffer = fileBuffer;
   const fileSizeBytes = buffer.length;
 
   // Strict SVG rejection check
-  const originalName = data.filename.toLowerCase();
-  if (originalName.endsWith(".svg") || data.mimetype === "image/svg+xml") {
+  const originalName = filename.toLowerCase();
+  if (originalName.endsWith(".svg") || mimetype === "image/svg+xml") {
     return reply.status(400).send({
       error: "Berkas SVG dilarang secara mutlak karena alasan keamanan siber (Anti-XSS).",
     });
@@ -138,7 +150,7 @@ fastify.post("/api/dokumen/upload", async (request: FastifyRequest, reply: Fasti
     kodePermohonan,
     persyaratanId,
     userId,
-    fileNameOriginal: data.filename,
+    fileNameOriginal: filename,
     fileNameUuid: targetFilename,
     filePath: targetFilePath,
     mimeType: detectedType.mime,

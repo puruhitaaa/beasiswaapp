@@ -86,8 +86,10 @@ describe("Web Client API Integration & Contract Verification", () => {
       type: "application/pdf",
     });
 
+    let sentUrl = "";
     let sentFormData: FormData | null = null;
-    vi.spyOn(global, "fetch").mockImplementationOnce(async (_url, init) => {
+    vi.spyOn(global, "fetch").mockImplementationOnce(async (url, init) => {
+      sentUrl = String(url);
       sentFormData = init?.body as FormData;
       return new Response(
         JSON.stringify({
@@ -101,6 +103,7 @@ describe("Web Client API Integration & Contract Verification", () => {
     const res = await dokumenApi.upload("prm-1", "REG-001", "req-ktp", mockFile);
     expect(res.success).toBe(true);
     expect(res.dokumen.id).toBe("doc-123");
+    expect(sentUrl).toContain("/api/dokumen/upload?persyaratanId=req-ktp&pendaftaranId=prm-1&kodePermohonan=REG-001");
     expect(sentFormData).not.toBeNull();
     expect(sentFormData?.get("pendaftaranId")).toBe("prm-1");
     expect(sentFormData?.get("kodePermohonan")).toBe("REG-001");
