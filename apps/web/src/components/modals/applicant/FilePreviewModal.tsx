@@ -15,7 +15,7 @@ export const FilePreviewModal: React.FC<FilePreviewModalProps> = ({
 }) => {
   if (!isOpen) return null;
 
-  const isPdf = fileName.toLowerCase().endsWith(".pdf");
+  const isPdf = (fileName || "").toLowerCase().endsWith(".pdf");
 
   return (
     <>

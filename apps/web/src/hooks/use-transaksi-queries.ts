@@ -154,12 +154,34 @@ export function useApplicationDetail(id: string) {
   });
 }
 
+function mapPendaftaranQueueItem(item: any): PendaftaranRecord {
+  const userName = item.biodata?.namaLengkap || item.userName || "-";
+  const userNik = item.biodata?.nik || item.userNik || "-";
+  const beasiswaNama = item.beasiswaNama || item.beasiswaNamaSnapshot || "-";
+  return {
+    ...item,
+    userName,
+    userNik,
+    beasiswaNama,
+    beasiswaMetode: item.beasiswaMetode || "Daring",
+    tipePengajuan: item.tipePengajuan || (item.status === "REVISI" ? "Hasil Revisi" : "Baru Submit"),
+    dokumen: item.dokumen || [],
+    submittedAt: item.submittedAt
+      ? new Date(item.submittedAt).toLocaleDateString("id-ID", {
+          day: "2-digit",
+          month: "short",
+          year: "numeric",
+        })
+      : item.submittedAt || undefined,
+  };
+}
+
 export function useVerifikatorQueue() {
   return useQuery({
     queryKey: queryKeys.transaksi.verifikatorQueue(),
     queryFn: async (): Promise<PendaftaranRecord[]> => {
       const queue = await transaksiApi.getVerifikatorQueue();
-      return Array.isArray(queue) ? queue : [];
+      return Array.isArray(queue) ? queue.map(mapPendaftaranQueueItem) : [];
     },
   });
 }
@@ -169,7 +191,7 @@ export function useWawancaraQueue() {
     queryKey: queryKeys.transaksi.wawancaraQueue(),
     queryFn: async (): Promise<PendaftaranRecord[]> => {
       const queue = await transaksiApi.getWawancaraQueue();
-      return Array.isArray(queue) ? queue : [];
+      return Array.isArray(queue) ? queue.map(mapPendaftaranQueueItem) : [];
     },
   });
 }
@@ -188,7 +210,7 @@ export function useAllApplications() {
     queryKey: queryKeys.transaksi.allApplications(),
     queryFn: async (): Promise<PendaftaranRecord[]> => {
       const apps = await transaksiApi.getAllApplications();
-      return Array.isArray(apps) ? apps : [];
+      return Array.isArray(apps) ? apps.map(mapPendaftaranQueueItem) : [];
     },
   });
 }

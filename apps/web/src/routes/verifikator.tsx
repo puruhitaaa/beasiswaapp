@@ -41,11 +41,15 @@ function VerifikatorPageComponent() {
 
   // Filter list: search by name, NIK, or program
   const filteredList = pendaftarList.filter((item) => {
-    const name = item.biodata?.namaLengkap || item.userName;
-    const nik = item.biodata?.nik || item.userNik;
-    const program = item.beasiswaNama;
-    const q = searchQuery.toLowerCase();
-    return name.toLowerCase().includes(q) || nik.includes(q) || program.toLowerCase().includes(q);
+    const name = item.biodata?.namaLengkap || item.userName || "";
+    const nik = item.biodata?.nik || item.userNik || "";
+    const program = item.beasiswaNama || (item as any).beasiswaNamaSnapshot || "";
+    const q = (searchQuery || "").toLowerCase();
+    return (
+      name.toLowerCase().includes(q) ||
+      nik.toLowerCase().includes(q) ||
+      program.toLowerCase().includes(q)
+    );
   });
 
   // Computed statistics

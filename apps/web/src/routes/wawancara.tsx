@@ -33,13 +33,15 @@ function WawancaraPageComponent() {
 
   // Filter list by status & search
   const filteredList = candidates.filter((item) => {
-    const name = item.biodata?.namaLengkap || item.userName;
-    const nik = item.biodata?.nik || item.userNik;
-    const program = item.beasiswaNama;
-    const q = searchQuery.toLowerCase();
+    const name = item.biodata?.namaLengkap || item.userName || "";
+    const nik = item.biodata?.nik || item.userNik || "";
+    const program = item.beasiswaNama || (item as any).beasiswaNamaSnapshot || "";
+    const q = (searchQuery || "").toLowerCase();
 
     const matchesSearch =
-      name.toLowerCase().includes(q) || nik.includes(q) || program.toLowerCase().includes(q);
+      name.toLowerCase().includes(q) ||
+      nik.toLowerCase().includes(q) ||
+      program.toLowerCase().includes(q);
 
     if (!matchesSearch) return false;
 
