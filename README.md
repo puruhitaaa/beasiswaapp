@@ -20,13 +20,13 @@ Sistem terbagi ke dalam 6 modul aplikasi mandiri dan 1 paket kontrak bersama:
 
 | Modul | Direktori sumber | Repositori rilis GitHub | Port layanan | Teknologi utama |
 | :-- | :-- | :-- | :-- | :-- |
-| **API Gateway** | `apps/api-gateway` | `puruhitaaa/beasiswaapp-api-gateway` | 3000 (Publik) | Fastify, Jose, Rate Limit, Http Proxy |
-| **Frontend Web** | `apps/web` | `puruhitaaa/beasiswaapp-web` | 3001 (Publik) | React 19, TanStack Router, TanStack Form, Bootstrap 5 |
-| **Service RBAC** | `apps/service-rbac` | `puruhitaaa/beasiswaapp-service-rbac` | 3001 (Privat) | Node.js, Better-Auth, Prisma, MySQL |
-| **Service Data Master** | `apps/service-master` | `puruhitaaa/beasiswaapp-service-master` | 3002 (Privat) | Node.js, Fastify, Prisma, MySQL |
-| **Service Transaksi** | `apps/service-transaksi` | `puruhitaaa/beasiswaapp-service-transaksi` | 3003 (Privat) | Node.js, Fastify, Prisma, MySQL |
-| **Service Dokumen** | `apps/service-dokumen` | `puruhitaaa/beasiswaapp-service-dokumen` | 3004 (Privat) | Node.js, Fastify, Prisma, PostgreSQL, ClamAV |
-| **Shared Contracts** | `packages/contracts` | `puruhitaaa/beasiswaapp-contracts` | N/A | Zod, TypeScript Enums & Types |
+| **API Gateway** | `apps/api-gateway` | [`puruhitaaa/beasiswaapp-api-gateway`](https://github.com/puruhitaaa/beasiswaapp-api-gateway) | 3000 (Publik) | Fastify, Jose, Rate Limit, Http Proxy |
+| **Frontend Web** | `apps/web` | [`puruhitaaa/beasiswaapp-web`](https://github.com/puruhitaaa/beasiswaapp-web) | 3001 (Publik) | React 19, TanStack Router, TanStack Form, Bootstrap 5 |
+| **Service RBAC** | `apps/service-rbac` | [`puruhitaaa/beasiswaapp-service-rbac`](https://github.com/puruhitaaa/beasiswaapp-service-rbac) | 3001 (Privat) | Node.js, Better-Auth, Prisma, MySQL |
+| **Service Data Master** | `apps/service-master` | [`puruhitaaa/beasiswaapp-service-master`](https://github.com/puruhitaaa/beasiswaapp-service-master) | 3002 (Privat) | Node.js, Fastify, Prisma, MySQL |
+| **Service Transaksi** | `apps/service-transaksi` | [`puruhitaaa/beasiswaapp-service-transaksi`](https://github.com/puruhitaaa/beasiswaapp-service-transaksi) | 3003 (Privat) | Node.js, Fastify, Prisma, MySQL |
+| **Service Dokumen** | `apps/service-dokumen` | [`puruhitaaa/beasiswaapp-service-dokumen`](https://github.com/puruhitaaa/beasiswaapp-service-dokumen) | 3004 (Privat) | Node.js, Fastify, Prisma, PostgreSQL, ClamAV |
+| **Shared Contracts** | `packages/contracts` | [`puruhitaaa/beasiswaapp-contracts`](https://github.com/puruhitaaa/beasiswaapp-contracts) | N/A | Zod, TypeScript Enums & Types |
 
 ```mermaid
 flowchart TD
