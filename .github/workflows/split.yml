@@ -1,0 +1,38 @@
+name: Split Monorepo to Remote Repositories
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - "apps/**"
+      - "packages/**"
+      - "scripts/**"
+      - "pnpm-workspace.yaml"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  split-services:
+    name: Distribute Services to Standalone Repositories
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Monorepo
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Run Multi-Repo Distribution Script
+        env:
+          GITHUB_OWNER: ${{ github.repository_owner }}
+          SPLIT_TOKEN: ${{ secrets.SPLIT_TOKEN || github.token }}
+        run: |
+          node scripts/split-services.mjs --push
