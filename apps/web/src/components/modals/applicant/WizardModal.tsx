@@ -1,7 +1,13 @@
 import React, { useState, useEffect } from "react";
 import { toast } from "sonner";
 import { appStore } from "@/lib/store";
-import { dokumenApi, transaksiApi } from "@/lib/api";
+import {
+  useSaveStep1Mutation,
+  useSaveStep2Mutation,
+  useSaveStep3Mutation,
+  useSubmitApplicationMutation,
+} from "@/hooks/use-transaksi-queries";
+import { useUploadDokumenMutation } from "@/hooks/use-dokumen-mutations";
 import type { BiodataData, DokumenUploadItem, PendaftaranRecord, PendidikanData } from "@/types";
 
 interface WizardModalProps {
@@ -22,6 +28,12 @@ export const WizardModal: React.FC<WizardModalProps> = ({
   // Resume-later: start at stepWizardTerakhir (or Step 3 if revision mode)
   const initialStep = isRevisionMode ? 3 : Math.min(Math.max(pendaftaran.stepWizardTerakhir || 1, 1), 4);
   const [currentStep, setCurrentStep] = useState(initialStep);
+
+  const saveStep1Mutation = useSaveStep1Mutation();
+  const saveStep2Mutation = useSaveStep2Mutation();
+  const saveStep3Mutation = useSaveStep3Mutation();
+  const submitApplicationMutation = useSubmitApplicationMutation();
+  const uploadDokumenMutation = useUploadDokumenMutation();
 
   // Form State Step 1
   const [biodata, setBiodata] = useState<BiodataData>({
@@ -143,8 +155,7 @@ export const WizardModal: React.FC<WizardModalProps> = ({
     if (currentStep === 1) {
       if (!validateStep1()) return;
       try {
-        await transaksiApi.saveStep1(pendaftaran.id, biodata);
-        appStore.saveStep1(pendaftaran.id, biodata);
+        await saveStep1Mutation.mutateAsync({ id: pendaftaran.id, biodata });
         toast.success("Bagian 1 tersimpan otomatis!");
         setCurrentStep(2);
       } catch (err: any) {
@@ -153,8 +164,7 @@ export const WizardModal: React.FC<WizardModalProps> = ({
     } else if (currentStep === 2) {
       if (!validateStep2()) return;
       try {
-        await transaksiApi.saveStep2(pendaftaran.id, pendidikan);
-        appStore.saveStep2(pendaftaran.id, pendidikan);
+        await saveStep2Mutation.mutateAsync({ id: pendaftaran.id, pendidikan });
         toast.success("Bagian 2 tersimpan otomatis!");
         setCurrentStep(3);
       } catch (err: any) {
@@ -162,8 +172,7 @@ export const WizardModal: React.FC<WizardModalProps> = ({
       }
     } else if (currentStep === 3) {
       try {
-        await transaksiApi.saveStep3(pendaftaran.id, documents);
-        appStore.saveStep3(pendaftaran.id, documents);
+        await saveStep3Mutation.mutateAsync({ id: pendaftaran.id, dokumen: documents });
         toast.success("Dokumen berhasil diperbarui!");
         setCurrentStep(4);
       } catch (err: any) {
@@ -181,14 +190,11 @@ export const WizardModal: React.FC<WizardModalProps> = ({
   const handleSaveDraft = async () => {
     try {
       if (currentStep === 1 && validateStep1()) {
-        await transaksiApi.saveStep1(pendaftaran.id, biodata);
-        appStore.saveStep1(pendaftaran.id, biodata);
+        await saveStep1Mutation.mutateAsync({ id: pendaftaran.id, biodata });
       } else if (currentStep === 2 && validateStep2()) {
-        await transaksiApi.saveStep2(pendaftaran.id, pendidikan);
-        appStore.saveStep2(pendaftaran.id, pendidikan);
+        await saveStep2Mutation.mutateAsync({ id: pendaftaran.id, pendidikan });
       } else if (currentStep === 3) {
-        await transaksiApi.saveStep3(pendaftaran.id, documents);
-        appStore.saveStep3(pendaftaran.id, documents);
+        await saveStep3Mutation.mutateAsync({ id: pendaftaran.id, dokumen: documents });
       }
       toast.success("Draft pendaftaran berhasil disimpan ke sistem!");
     } catch (err: any) {
@@ -223,12 +229,12 @@ export const WizardModal: React.FC<WizardModalProps> = ({
     }
 
     try {
-      const uploadRes = await dokumenApi.upload(
-        pendaftaran.id,
-        pendaftaran.kodePermohonan,
+      const uploadRes = await uploadDokumenMutation.mutateAsync({
+        pendaftaranId: pendaftaran.id,
+        kodePermohonan: pendaftaran.kodePermohonan,
         persyaratanId,
-        file
-      );
+        file,
+      });
 
       const updated = documents.map((doc) => {
         if (doc.persyaratanId === persyaratanId) {
@@ -264,15 +270,10 @@ export const WizardModal: React.FC<WizardModalProps> = ({
     }
 
     try {
-      await transaksiApi.saveStep1(pendaftaran.id, biodata);
-      await transaksiApi.saveStep2(pendaftaran.id, pendidikan);
-      await transaksiApi.saveStep3(pendaftaran.id, documents);
-      await transaksiApi.submit(pendaftaran.id);
-
-      appStore.saveStep1(pendaftaran.id, biodata);
-      appStore.saveStep2(pendaftaran.id, pendidikan);
-      appStore.saveStep3(pendaftaran.id, documents);
-      appStore.submitApplication(pendaftaran.id);
+      await saveStep1Mutation.mutateAsync({ id: pendaftaran.id, biodata });
+      await saveStep2Mutation.mutateAsync({ id: pendaftaran.id, pendidikan });
+      await saveStep3Mutation.mutateAsync({ id: pendaftaran.id, dokumen: documents });
+      await submitApplicationMutation.mutateAsync(pendaftaran.id);
 
       toast.success(
         "Pendaftaran berhasil dikirim! Berkas Anda sekarang dalam proses verifikasi administrasi."

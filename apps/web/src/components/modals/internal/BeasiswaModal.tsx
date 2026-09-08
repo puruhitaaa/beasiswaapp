@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { toast } from "sonner";
 import { appStore } from "@/lib/store";
-import { masterApi } from "@/lib/api";
+import { useCreateBeasiswaMutation } from "@/hooks/use-master-queries";
 
 interface BeasiswaModalProps {
   isOpen: boolean;
@@ -15,6 +15,7 @@ export const BeasiswaModal: React.FC<BeasiswaModalProps> = ({ isOpen, onClose, o
   const [metode, setMetode] = useState("Daring (Online)");
   const [deskripsi, setDeskripsi] = useState("");
   const [batasPendaftaran, setBatasPendaftaran] = useState("");
+  const createMutation = useCreateBeasiswaMutation();
 
   if (!isOpen) return null;
 
@@ -30,7 +31,7 @@ export const BeasiswaModal: React.FC<BeasiswaModalProps> = ({ isOpen, onClose, o
     }
 
     try {
-      await masterApi.createBeasiswa({
+      await createMutation.mutateAsync({
         kodeBeasiswa: `PRG-${Date.now().toString().slice(-4)}`,
         namaPelatihan,
         deskripsi: deskripsi || "Program pelatihan kejuruan bersertifikat resmi.",

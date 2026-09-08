@@ -1,8 +1,7 @@
 import React, { useState } from "react";
 import { useNavigate } from "@tanstack/react-router";
 import { toast } from "sonner";
-import { appStore } from "@/lib/store";
-import { authApi } from "@/lib/api";
+import { useLoginMutation } from "@/hooks/use-auth-queries";
 
 interface LoginModalProps {
   isOpen: boolean;
@@ -18,6 +17,7 @@ export const LoginModal: React.FC<LoginModalProps> = ({
   const [identifier, setIdentifier] = useState("");
   const [password, setPassword] = useState("");
   const navigate = useNavigate();
+  const loginMutation = useLoginMutation();
 
   if (!isOpen) return null;
 
@@ -30,8 +30,11 @@ export const LoginModal: React.FC<LoginModalProps> = ({
 
     try {
       const displayName = identifier.includes("@") ? identifier.split("@")[0] : identifier;
-      const res = await authApi.login(identifier, "applicant", displayName);
-      appStore.setCurrentUser(res.user);
+      await loginMutation.mutateAsync({
+        email: identifier,
+        role: "applicant",
+        name: displayName,
+      });
 
       toast.success("Berhasil masuk ke Dashboard Calon Peserta!");
       onClose();

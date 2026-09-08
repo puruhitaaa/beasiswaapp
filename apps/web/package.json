@@ -14,6 +14,7 @@
     "@beasiswaapp/env": "workspace:*",
     "@beasiswaapp/ui": "workspace:*",
     "@tanstack/react-form": "^1.33.2",
+    "@tanstack/react-query": "^5.102.8",
     "@tanstack/react-router": "^1.170.18",
     "better-auth": "catalog:",
     "bootstrap": "catalog:",
@@ -27,6 +28,7 @@
   },
   "devDependencies": {
     "@beasiswaapp/config": "workspace:*",
+    "@tanstack/react-query-devtools": "^5.102.8",
     "@tanstack/react-router-devtools": "^1.167.0",
     "@tanstack/router-plugin": "^1.168.23",
     "@types/bootstrap": "catalog:",

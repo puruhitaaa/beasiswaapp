@@ -1,14 +1,20 @@
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { toast } from "sonner";
 import { appStore } from "@/lib/store";
-import { authApi, masterApi, transaksiApi } from "@/lib/api";
 import { SidebarInternal } from "@/components/layout/SidebarInternal";
 import { PageHeaderInternal } from "@/components/layout/PageHeaderInternal";
 import { BeasiswaModal } from "@/components/modals/internal/BeasiswaModal";
 import { PersyaratanModal } from "@/components/modals/internal/PersyaratanModal";
 import { UserInternalModal } from "@/components/modals/internal/UserInternalModal";
 import { RolePermissionModal } from "@/components/modals/internal/RolePermissionModal";
+import { useBeasiswaList, useDeleteBeasiswaMutation } from "@/hooks/use-master-queries";
+import {
+  useAllApplications,
+  useAdminStatistics,
+  useExportExcelMutation,
+} from "@/hooks/use-transaksi-queries";
+import { useInternalUsers, useRoles, useMenus } from "@/hooks/use-auth-queries";
 import type {
   MasterRole,
   PendaftaranRecord,
@@ -23,7 +29,7 @@ export const Route = createFileRoute("/admin")({
 });
 
 function AdminPageComponent() {
-  const [currentUser, setCurrentUser] = useState(appStore.getCurrentUser());
+  const [currentUser] = useState(appStore.getCurrentUser());
   const [activeTab, setActiveTab] = useState<"dashboard" | "hasil" | "master" | "setting">("dashboard");
   const [masterSubTab, setMasterSubTab] = useState<"beasiswa" | "syarat">("beasiswa");
   const [settingSubTab, setSettingSubTab] = useState<"user" | "role" | "menu">("user");
@@ -35,86 +41,22 @@ function AdminPageComponent() {
   const [selectedRole, setSelectedRole] = useState<MasterRole | null>(null);
   const [isRoleModalOpen, setIsRoleModalOpen] = useState(false);
 
-  // Store & backend data states
-  const [pendaftarList, setPendaftarList] = useState<PendaftaranRecord[]>([]);
-  const [beasiswaList, setBeasiswaList] = useState<BeasiswaProgram[]>([]);
-  const [persyaratanList, setPersyaratanList] = useState<MasterPersyaratan[]>([]);
-  const [userList, setUserList] = useState<UserInternal[]>([]);
-  const [roleList, setRoleList] = useState<MasterRole[]>([]);
-  const [menuList, setMenuList] = useState<MasterMenu[]>([]);
-  const [backendStats, setBackendStats] = useState<any>(null);
+  // TanStack Query Data Streams
+  const { data: pendaftarList = [] } = useAllApplications();
+  const { data: beasiswaList = [] } = useBeasiswaList();
+  const { data: userList = [] } = useInternalUsers();
+  const { data: roleList = [] } = useRoles();
+  const { data: menuList = [] } = useMenus();
+  const { data: backendStats } = useAdminStatistics();
+  const persyaratanList: MasterPersyaratan[] = appStore.getPersyaratanList();
 
-  const reloadData = async () => {
-    try {
-      await authApi.ensureSession("admin", "admin@beasiswa.go.id", "Admin: Yosep Rohayadi");
-      const [apps, beasiswa, users, roles, menus, stats] = await Promise.allSettled([
-        transaksiApi.getAllApplications(),
-        masterApi.getBeasiswaList(),
-        authApi.getUsers(),
-        authApi.getRoles(),
-        authApi.getMenus(),
-        transaksiApi.getStatistics(),
-      ]);
-
-      if (apps.status === "fulfilled" && Array.isArray(apps.value)) {
-        setPendaftarList(apps.value);
-      } else {
-        setPendaftarList(appStore.getAllPendaftaran());
-      }
-
-      if (beasiswa.status === "fulfilled" && Array.isArray(beasiswa.value)) {
-        setBeasiswaList(beasiswa.value);
-      } else {
-        setBeasiswaList(appStore.getBeasiswaList());
-      }
-
-      if (users.status === "fulfilled" && Array.isArray(users.value)) {
-        setUserList(users.value);
-      } else {
-        setUserList(appStore.getInternalUsers());
-      }
-
-      if (roles.status === "fulfilled" && Array.isArray(roles.value)) {
-        setRoleList(roles.value);
-      } else {
-        setRoleList(appStore.getRoles());
-      }
-
-      if (menus.status === "fulfilled" && Array.isArray(menus.value)) {
-        setMenuList(menus.value);
-      } else {
-        setMenuList(appStore.getMenus());
-      }
-
-      if (stats.status === "fulfilled" && stats.value) {
-        setBackendStats(stats.value);
-      }
-
-      setPersyaratanList(appStore.getPersyaratanList());
-      setCurrentUser(appStore.getCurrentUser());
-    } catch (err) {
-      console.error("Failed to reload admin data:", err);
-      setPendaftarList(appStore.getAllPendaftaran());
-      setBeasiswaList(appStore.getBeasiswaList());
-      setPersyaratanList(appStore.getPersyaratanList());
-      setUserList(appStore.getInternalUsers());
-      setRoleList(appStore.getRoles());
-      setMenuList(appStore.getMenus());
-    }
-  };
-
-  useEffect(() => {
-    reloadData();
-    const unsub = appStore.subscribe(() => {
-      reloadData();
-    });
-    return unsub;
-  }, []);
+  const deleteBeasiswaMutation = useDeleteBeasiswaMutation();
+  const exportExcelMutation = useExportExcelMutation();
 
   // Export to Excel / CSV format
   const handleExportExcel = async () => {
     try {
-      await transaksiApi.exportExcel();
+      await exportExcelMutation.mutateAsync();
       toast.success("File Rekap Hasil Seleksi berhasil diexport!");
     } catch (err: any) {
       toast.error(err.message || "Gagal mengunduh file rekap hasil seleksi.");
@@ -123,10 +65,9 @@ function AdminPageComponent() {
 
   const handleDeleteBeasiswa = async (id: string) => {
     try {
-      await masterApi.deleteBeasiswa(id);
+      await deleteBeasiswaMutation.mutateAsync(id);
       appStore.deleteBeasiswa(id);
       toast.success("Program beasiswa berhasil dinonaktifkan!");
-      await reloadData();
     } catch (err: any) {
       toast.error(err.message || "Gagal menghapus program beasiswa.");
     }
@@ -760,7 +701,6 @@ function AdminPageComponent() {
       <BeasiswaModal
         isOpen={isBeasiswaModalOpen}
         onClose={() => setIsBeasiswaModalOpen(false)}
-        onSuccess={reloadData}
       />
       <PersyaratanModal
         isOpen={isSyaratModalOpen}

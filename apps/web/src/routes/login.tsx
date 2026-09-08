@@ -1,8 +1,7 @@
 import React, { useState } from "react";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { toast } from "sonner";
-import { appStore } from "@/lib/store";
-import { authApi } from "@/lib/api";
+import { useLoginMutation } from "@/hooks/use-auth-queries";
 
 export const Route = createFileRoute("/login")({
   component: InternalLoginComponent,
@@ -14,6 +13,7 @@ function InternalLoginComponent() {
   const [role, setRole] = useState<"verifikator" | "interviewer" | "admin">("verifikator");
   const [rememberMe, setRememberMe] = useState(true);
   const navigate = useNavigate();
+  const loginMutation = useLoginMutation();
 
   const handleRoleChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const selected = e.target.value as "verifikator" | "interviewer" | "admin";
@@ -35,8 +35,11 @@ function InternalLoginComponent() {
       : role.toUpperCase();
 
     try {
-      const res = await authApi.login(username, role, formattedName);
-      appStore.setCurrentUser(res.user);
+      await loginMutation.mutateAsync({
+        email: username,
+        role,
+        name: formattedName,
+      });
 
       toast.success(`Berhasil masuk sebagai ${role.toUpperCase()}!`);
 

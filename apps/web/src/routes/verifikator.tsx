@@ -1,7 +1,7 @@
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { appStore } from "@/lib/store";
-import { authApi, transaksiApi } from "@/lib/api";
+import { useVerifikatorQueue } from "@/hooks/use-transaksi-queries";
 import { SidebarInternal } from "@/components/layout/SidebarInternal";
 import { PageHeaderInternal } from "@/components/layout/PageHeaderInternal";
 import { VerifikasiModal } from "@/components/modals/internal/VerifikasiModal";
@@ -13,7 +13,7 @@ export const Route = createFileRoute("/verifikator")({
 });
 
 function VerifikatorPageComponent() {
-  const [currentUser, setCurrentUser] = useState(appStore.getCurrentUser());
+  const [currentUser] = useState(appStore.getCurrentUser());
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedPendaftaran, setSelectedPendaftaran] = useState<PendaftaranRecord | null>(null);
   const [isVerifOpen, setIsVerifOpen] = useState(false);
@@ -22,30 +22,7 @@ function VerifikatorPageComponent() {
     fileName: "",
   });
 
-  // Reactive subscription to store & backend
-  const [pendaftarList, setPendaftarList] = useState<PendaftaranRecord[]>([]);
-
-  const reloadData = async () => {
-    try {
-      await authApi.ensureSession("verifikator", "ahmad@beasiswa.go.id", "Ahmad Rivaldi");
-      const queue = await transaksiApi.getVerifikatorQueue();
-      if (Array.isArray(queue)) {
-        setPendaftarList(queue);
-      }
-    } catch (err) {
-      console.error("Failed to load verifikator queue:", err);
-      setPendaftarList(appStore.getAllPendaftaran());
-    }
-  };
-
-  useEffect(() => {
-    reloadData();
-    const unsub = appStore.subscribe(() => {
-      reloadData();
-      setCurrentUser(appStore.getCurrentUser());
-    });
-    return unsub;
-  }, []);
+  const { data: pendaftarList = [], isLoading } = useVerifikatorQueue();
 
   // Filter list: search by name, NIK, or program
   const filteredList = pendaftarList.filter((item) => {
@@ -260,7 +237,7 @@ function VerifikatorPageComponent() {
           onClose={handleCloseVerif}
           pendaftaran={selectedPendaftaran}
           onPreviewFile={handlePreview}
-          onSuccess={reloadData}
+          onSuccess={handleCloseVerif}
         />
       )}
 

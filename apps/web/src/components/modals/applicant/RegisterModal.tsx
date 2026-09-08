@@ -1,8 +1,8 @@
 import React, { useState } from "react";
 import { useNavigate } from "@tanstack/react-router";
 import { toast } from "sonner";
-import { appStore } from "@/lib/store";
-import { authApi, transaksiApi } from "@/lib/api";
+import { useLoginMutation } from "@/hooks/use-auth-queries";
+import { useInitApplicationMutation } from "@/hooks/use-transaksi-queries";
 
 interface RegisterModalProps {
   isOpen: boolean;
@@ -21,6 +21,8 @@ export const RegisterModal: React.FC<RegisterModalProps> = ({
   const [namaLengkap, setNamaLengkap] = useState("");
   const [email, setEmail] = useState("");
   const navigate = useNavigate();
+  const loginMutation = useLoginMutation();
+  const initApplicationMutation = useInitApplicationMutation();
 
   if (!isOpen) return null;
 
@@ -42,13 +44,17 @@ export const RegisterModal: React.FC<RegisterModalProps> = ({
     }
 
     try {
-      const authRes = await authApi.login(email, "applicant", namaLengkap, `user-${nik}`);
-      appStore.setCurrentUser(authRes.user);
+      await loginMutation.mutateAsync({
+        email,
+        role: "applicant",
+        name: namaLengkap,
+        userId: `user-${nik}`,
+      });
 
       // If a target program was selected, auto-init a draft in the backend
       const progId = targetProgramId || "prog-web";
       try {
-        await transaksiApi.initApplication(progId);
+        await initApplicationMutation.mutateAsync({ beasiswaId: progId });
       } catch {
         // ignore if application already initialized
       }

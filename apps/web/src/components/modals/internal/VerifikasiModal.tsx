@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { toast } from "sonner";
 import { appStore } from "@/lib/store";
-import { transaksiApi } from "@/lib/api";
+import { useSubmitVerifikasiMutation } from "@/hooks/use-transaksi-queries";
 import type { PendaftaranRecord } from "@/types";
 
 interface VerifikasiModalProps {
@@ -22,6 +22,7 @@ export const VerifikasiModal: React.FC<VerifikasiModalProps> = ({
   const [activeTab, setActiveTab] = useState<1 | 2 | 3 | 4>(1);
   const [statusKeputusan, setStatusKeputusan] = useState<"disetujui" | "revisi" | "ditolak">("disetujui");
   const [catatanVerifikator, setCatatanVerifikator] = useState("");
+  const submitVerifikasiMutation = useSubmitVerifikasiMutation();
 
   // Document checklist state: mapping of persyaratanId to { isSesuai, catatanPerbaikan }
   const [docChecks, setDocChecks] = useState<
@@ -96,14 +97,17 @@ export const VerifikasiModal: React.FC<VerifikasiModalProps> = ({
     }));
 
     try {
-      await transaksiApi.submitVerifikasiDecision(pendaftaran.id, {
-        statusKeputusan,
-        catatanVerifikator,
-        catatanRevisi: catatanVerifikator,
-        checklistKtp: docChecks["req-ktp"]?.isSesuai ?? true,
-        checklistKk: docChecks["req-kk"]?.isSesuai ?? true,
-        checklistIjazah: docChecks["req-ijazah"]?.isSesuai ?? true,
-        checklistRekomendasi: docChecks["req-rekom"]?.isSesuai ?? true,
+      await submitVerifikasiMutation.mutateAsync({
+        id: pendaftaran.id,
+        decision: {
+          statusKeputusan,
+          catatanVerifikator,
+          catatanRevisi: catatanVerifikator,
+          checklistKtp: docChecks["req-ktp"]?.isSesuai ?? true,
+          checklistKk: docChecks["req-kk"]?.isSesuai ?? true,
+          checklistIjazah: docChecks["req-ijazah"]?.isSesuai ?? true,
+          checklistRekomendasi: docChecks["req-rekom"]?.isSesuai ?? true,
+        },
       });
 
       appStore.submitVerifikasiDecision(

@@ -1,7 +1,7 @@
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { appStore } from "@/lib/store";
-import { authApi, transaksiApi } from "@/lib/api";
+import { useWawancaraQueue } from "@/hooks/use-transaksi-queries";
 import { SidebarInternal } from "@/components/layout/SidebarInternal";
 import { PageHeaderInternal } from "@/components/layout/PageHeaderInternal";
 import { WawancaraModal } from "@/components/modals/internal/WawancaraModal";
@@ -12,44 +12,13 @@ export const Route = createFileRoute("/wawancara")({
 });
 
 function WawancaraPageComponent() {
-  const [currentUser, setCurrentUser] = useState(appStore.getCurrentUser());
+  const [currentUser] = useState(appStore.getCurrentUser());
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("");
   const [selectedCandidate, setSelectedCandidate] = useState<PendaftaranRecord | null>(null);
   const [isWawancaraOpen, setIsWawancaraOpen] = useState(false);
 
-  // Reactive subscription
-  const [candidates, setCandidates] = useState<PendaftaranRecord[]>([]);
-
-  const reloadData = async () => {
-    try {
-      await authApi.ensureSession("interviewer", "interviewer@beasiswa.go.id", "Tim Penguji: Lembaga Seleksi A");
-      const queue = await transaksiApi.getWawancaraQueue();
-      if (Array.isArray(queue)) {
-        setCandidates(queue);
-      }
-    } catch (err) {
-      console.error("Failed to load wawancara queue:", err);
-      const all: PendaftaranRecord[] = appStore.getAllPendaftaran();
-      const eligible = all.filter(
-        (p) =>
-          p.status === "LOLOS_ADMIN" ||
-          p.status === "DALAM_PROSES_WAWANCARA" ||
-          p.status === "LULUS_DITERIMA" ||
-          p.status === "TIDAK_LULUS_WAWANCARA"
-      );
-      setCandidates(eligible.length > 0 ? eligible : all);
-    }
-  };
-
-  useEffect(() => {
-    reloadData();
-    const unsub = appStore.subscribe(() => {
-      reloadData();
-      setCurrentUser(appStore.getCurrentUser());
-    });
-    return unsub;
-  }, []);
+  const { data: candidates = [], isLoading } = useWawancaraQueue();
 
   // Filter list by status & search
   const filteredList = candidates.filter((item) => {
@@ -283,7 +252,7 @@ function WawancaraPageComponent() {
           isOpen={isWawancaraOpen}
           onClose={handleCloseWawancara}
           pendaftaran={selectedCandidate}
-          onSuccess={reloadData}
+          onSuccess={handleCloseWawancara}
         />
       )}
     </div>

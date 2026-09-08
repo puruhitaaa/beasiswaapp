@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { toast } from "sonner";
 import { appStore } from "@/lib/store";
-import { transaksiApi } from "@/lib/api";
+import { useConfirmDaftarUlangMutation } from "@/hooks/use-transaksi-queries";
 
 interface DaftarUlangModalProps {
   isOpen: boolean;
@@ -18,14 +18,18 @@ export const DaftarUlangModal: React.FC<DaftarUlangModalProps> = ({
 }) => {
   const [kesediaan, setKesediaan] = useState<"bersedia" | "mengundurkan">("bersedia");
   const [catatan, setCatatan] = useState("");
+  const confirmMutation = useConfirmDaftarUlangMutation();
 
   if (!isOpen) return null;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      await transaksiApi.confirmDaftarUlang(pendaftaranId, kesediaan, catatan);
-      appStore.confirmDaftarUlang(pendaftaranId, kesediaan, catatan);
+      await confirmMutation.mutateAsync({
+        id: pendaftaranId,
+        statusKesediaan: kesediaan,
+        catatan,
+      });
       if (kesediaan === "bersedia") {
         toast.success("Konfirmasi kehadiran Anda telah berhasil tercatat. Silakan pantau grup koordinasi!");
       } else {

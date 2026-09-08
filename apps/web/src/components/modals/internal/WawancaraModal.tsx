@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { toast } from "sonner";
 import { appStore } from "@/lib/store";
-import { transaksiApi } from "@/lib/api";
+import { useSubmitWawancaraMutation } from "@/hooks/use-transaksi-queries";
 import type { PendaftaranRecord } from "@/types";
 
 interface WawancaraModalProps {
@@ -22,6 +22,7 @@ export const WawancaraModal: React.FC<WawancaraModalProps> = ({
   const [skorKomitmen, setSkorKomitmen] = useState<number | "">("");
   const [statusWawancara, setStatusWawancara] = useState<"Lulus" | "Tidak Lulus">("Lulus");
   const [catatanEvaluasi, setCatatanEvaluasi] = useState("");
+  const submitWawancaraMutation = useSubmitWawancaraMutation();
 
   useEffect(() => {
     if (pendaftaran) {
@@ -66,13 +67,16 @@ export const WawancaraModal: React.FC<WawancaraModalProps> = ({
     }
 
     try {
-      await transaksiApi.submitWawancaraScoring(pendaftaran.id, {
-        skorKomunikasi: Number(skorKomunikasi),
-        skorTeknis: Number(skorTeknis),
-        skorKomitmen: Number(skorKomitmen),
-        nilaiWawancara: Number(nilaiAkhir),
-        statusHasil: statusWawancara,
-        catatanEvaluasi,
+      await submitWawancaraMutation.mutateAsync({
+        id: pendaftaran.id,
+        scoring: {
+          skorKomunikasi: Number(skorKomunikasi),
+          skorTeknis: Number(skorTeknis),
+          skorKomitmen: Number(skorKomitmen),
+          nilaiWawancara: Number(nilaiAkhir),
+          statusHasil: statusWawancara,
+          catatanEvaluasi,
+        },
       });
 
       appStore.submitWawancaraScoring(
