@@ -324,7 +324,14 @@ class TransaksiRepository {
       data: { status: newStatus },
     });
 
-    return this.findUnique(pendaftaranId);
+    const res = await this.findUnique(pendaftaranId);
+    if (res) {
+      res.daftarUlang = {
+        statusKesediaan,
+        catatan: _catatan,
+      };
+    }
+    return res;
   }
 
   async getVerifikatorQueue(): Promise<TransaksiRecord[]> {

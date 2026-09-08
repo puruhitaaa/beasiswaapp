@@ -6,7 +6,7 @@ import { PrismaClient } from "./generated/prisma/client.js";
 export function createPrismaClient() {
   const databaseUrl =
     process.env.DATABASE_URL ||
-    "postgresql://postgres:password@localhost:5432/dokumen_db";
+    "postgresql://postgres:password@localhost:5433/dokumen_db";
   const pool = new pg.Pool({ connectionString: databaseUrl });
   const adapter = new PrismaPg(pool);
   return new PrismaClient({ adapter });

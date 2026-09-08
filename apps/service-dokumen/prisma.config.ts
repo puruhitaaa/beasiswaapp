@@ -8,6 +8,6 @@ export default defineConfig({
   datasource: {
     url:
       process.env.DATABASE_URL ||
-      "postgresql://postgres:password@localhost:5432/dokumen_db",
+      "postgresql://postgres:password@localhost:5433/dokumen_db",
   },
 });

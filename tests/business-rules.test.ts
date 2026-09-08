@@ -9,7 +9,7 @@ describe("Business Rules & FSM Verification", () => {
   it("Rule 1: Enforces 1 active registration per applicant", async () => {
     // 1. Create first registration
     const app1 = await repository.create({
-      kodePermohonan: `REG-TEST-001`,
+      kodePermohonan: `REG-TEST-${Date.now()}-1`,
       userId: testUserId,
       beasiswaId: "prog-web",
       beasiswaNamaSnapshot: "Pelatihan Web Developer Specialist",
@@ -33,7 +33,7 @@ describe("Business Rules & FSM Verification", () => {
   it("Rule 1.1: Allows new registration after previous application was rejected", async () => {
     const rejectedUserId = `rejected-user-${Date.now()}`;
     const oldApp = await repository.create({
-      kodePermohonan: `REG-REJECT-001`,
+      kodePermohonan: `REG-REJECT-${Date.now()}`,
       userId: rejectedUserId,
       beasiswaId: "prog-web",
       beasiswaNamaSnapshot: "Pelatihan Web Developer",
@@ -51,7 +51,7 @@ describe("Business Rules & FSM Verification", () => {
   it("Rule 2: 4-Step Wizard persistence and auto-save progression", async () => {
     const wizardUserId = `wizard-user-${Date.now()}`;
     const app = await repository.create({
-      kodePermohonan: `REG-WIZARD-001`,
+      kodePermohonan: `REG-WIZARD-${Date.now()}`,
       userId: wizardUserId,
       beasiswaId: "prog-web",
       beasiswaNamaSnapshot: "Pelatihan Web Developer Specialist",
@@ -105,7 +105,7 @@ describe("Business Rules & FSM Verification", () => {
     const attackerUserId = `attacker-${Date.now()}`;
 
     const ownerApp = await repository.create({
-      kodePermohonan: `REG-IDOR-001`,
+      kodePermohonan: `REG-IDOR-${Date.now()}`,
       userId: ownerUserId,
       beasiswaId: "prog-data",
       beasiswaNamaSnapshot: "Pelatihan Data Analyst",

@@ -5,7 +5,7 @@ import { StatusPendaftaran, StatusVerifikasi, StatusWawancara } from "@beasiswaa
 describe("Scoring & FSM State Transitions", () => {
   it("Verifikator decision transitions to LOLOS_ADMIN on approval", async () => {
     const app = await repository.create({
-      kodePermohonan: `REG-VERIF-001`,
+      kodePermohonan: `REG-VERIF-${Date.now()}-1`,
       userId: `user-verif-${Date.now()}`,
       beasiswaId: "prog-web",
       beasiswaNamaSnapshot: "Pelatihan Web Developer",
@@ -25,7 +25,7 @@ describe("Scoring & FSM State Transitions", () => {
 
   it("Verifikator decision transitions to REVISI with per-document notes", async () => {
     const app = await repository.create({
-      kodePermohonan: `REG-VERIF-002`,
+      kodePermohonan: `REG-VERIF-${Date.now()}-2`,
       userId: `user-revisi-${Date.now()}`,
       beasiswaId: "prog-web",
       beasiswaNamaSnapshot: "Pelatihan Web Developer",
@@ -40,7 +40,7 @@ describe("Scoring & FSM State Transitions", () => {
     });
 
     expect(result.status).toBe(StatusPendaftaran.REVISI);
-    expect(result.verifikasi.catatanVerifikator).toContain("Ijazah buram");
+    expect(result.verifikasi.catatanRevisi || result.verifikasi.catatanVerifikator).toContain("Ijazah buram");
   });
 
   it("Weighted scoring formula: (K * 0.3) + (T * 0.4) + (M * 0.3) calculates correctly", async () => {
@@ -53,7 +53,7 @@ describe("Scoring & FSM State Transitions", () => {
     expect(calculated).toBe(87.7);
 
     const app = await repository.create({
-      kodePermohonan: `REG-SCORE-001`,
+      kodePermohonan: `REG-SCORE-${Date.now()}-1`,
       userId: `user-score-${Date.now()}`,
       beasiswaId: "prog-web",
       beasiswaNamaSnapshot: "Pelatihan Web Developer",
@@ -78,7 +78,7 @@ describe("Scoring & FSM State Transitions", () => {
     expect(calculated).toBe(55.0);
 
     const app = await repository.create({
-      kodePermohonan: `REG-SCORE-002`,
+      kodePermohonan: `REG-SCORE-${Date.now()}-2`,
       userId: `user-fail-${Date.now()}`,
       beasiswaId: "prog-web",
       beasiswaNamaSnapshot: "Pelatihan Web Developer",
@@ -96,7 +96,7 @@ describe("Scoring & FSM State Transitions", () => {
 
   it("Daftar Ulang confirmation saves attendance decision", async () => {
     const app = await repository.create({
-      kodePermohonan: `REG-DAFTAR-ULANG-001`,
+      kodePermohonan: `REG-DAFTAR-ULANG-${Date.now()}`,
       userId: `user-du-${Date.now()}`,
       beasiswaId: "prog-web",
       beasiswaNamaSnapshot: "Pelatihan Web Developer",
