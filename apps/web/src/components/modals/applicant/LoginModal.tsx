@@ -15,8 +15,8 @@ export const LoginModal: React.FC<LoginModalProps> = ({
   onClose,
   onSwitchToRegister,
 }) => {
-  const [identifier, setIdentifier] = useState("yosep@example.com");
-  const [password, setPassword] = useState("password123");
+  const [identifier, setIdentifier] = useState("");
+  const [password, setPassword] = useState("");
   const navigate = useNavigate();
 
   if (!isOpen) return null;
@@ -29,7 +29,8 @@ export const LoginModal: React.FC<LoginModalProps> = ({
     }
 
     try {
-      const res = await authApi.login(identifier, "applicant", "Yosep Rohayadi");
+      const displayName = identifier.includes("@") ? identifier.split("@")[0] : identifier;
+      const res = await authApi.login(identifier, "applicant", displayName);
       appStore.setCurrentUser(res.user);
 
       toast.success("Berhasil masuk ke Dashboard Calon Peserta!");

@@ -9,8 +9,8 @@ interface PersyaratanModalProps {
 
 export const PersyaratanModal: React.FC<PersyaratanModalProps> = ({ isOpen, onClose }) => {
   const [namaPersyaratan, setNamaPersyaratan] = useState("");
-  const [formatAllowed, setFormatAllowed] = useState("PDF / JPG / PNG");
-  const [maxSize, setMaxSize] = useState("2 MB");
+  const [formatAllowed, setFormatAllowed] = useState("");
+  const [maxSize, setMaxSize] = useState("");
   const [isMandatory, setIsMandatory] = useState(true);
 
   if (!isOpen) return null;
@@ -19,6 +19,14 @@ export const PersyaratanModal: React.FC<PersyaratanModalProps> = ({ isOpen, onCl
     e.preventDefault();
     if (!namaPersyaratan.trim()) {
       toast.error("Nama persyaratan wajib diisi.");
+      return;
+    }
+    if (!formatAllowed.trim()) {
+      toast.error("Format file diperbolehkan wajib diisi.");
+      return;
+    }
+    if (!maxSize.trim()) {
+      toast.error("Ukuran maksimal file wajib diisi.");
       return;
     }
 
@@ -69,6 +77,7 @@ export const PersyaratanModal: React.FC<PersyaratanModalProps> = ({ isOpen, onCl
                   <input
                     type="text"
                     className="form-control"
+                    placeholder="Contoh: PDF / JPG / PNG"
                     value={formatAllowed}
                     onChange={(e) => setFormatAllowed(e.target.value)}
                     required
@@ -79,6 +88,7 @@ export const PersyaratanModal: React.FC<PersyaratanModalProps> = ({ isOpen, onCl
                   <input
                     type="text"
                     className="form-control"
+                    placeholder="Contoh: 2 MB"
                     value={maxSize}
                     onChange={(e) => setMaxSize(e.target.value)}
                     required

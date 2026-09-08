@@ -47,10 +47,10 @@ function ApplicantPortalComponent() {
           id: appRes.id,
           kodePermohonan: appRes.kodePermohonan,
           userId: appRes.userId,
-          userName: appRes.biodata?.namaLengkap || currentUser?.name || "Yosep Rohayadi",
-          userNik: appRes.biodata?.nik || "3201123456780001",
+          userName: appRes.biodata?.namaLengkap || currentUser?.name || "-",
+          userNik: appRes.biodata?.nik || "-",
           beasiswaId: appRes.beasiswaId,
-          beasiswaNama: appRes.beasiswaNamaSnapshot || "Pelatihan Web Developer Specialist",
+          beasiswaNama: appRes.beasiswaNamaSnapshot || "-",
           beasiswaMetode: "Daring",
           status: appRes.status as ApplicationStatus,
           stepWizardTerakhir: appRes.stepWizardTerakhir || 1,
@@ -289,7 +289,7 @@ function ApplicantPortalComponent() {
                         <td>
                           <strong>{activeApp.beasiswaNama}</strong>
                         </td>
-                        <td>{activeApp.submittedAt || "02 Sep 2026"}</td>
+                        <td>{activeApp.submittedAt || "-"}</td>
                         <td>
                           <span className="badge bg-info text-dark">
                             <i className="bi bi-hourglass-split me-1"></i>Proses Verifikasi
@@ -364,7 +364,7 @@ function ApplicantPortalComponent() {
                                 Metode: {activeApp.beasiswaMetode || "Daring"}
                               </span>
                             </td>
-                            <td>{activeApp.submittedAt || "02 Sep 2026"}</td>
+                            <td>{activeApp.submittedAt || "-"}</td>
                             <td>
                               <span className="badge bg-warning text-dark">
                                 <i className="bi bi-pencil-square me-1"></i>Revisi Berkas

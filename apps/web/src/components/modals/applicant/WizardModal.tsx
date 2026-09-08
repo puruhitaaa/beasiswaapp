@@ -25,26 +25,26 @@ export const WizardModal: React.FC<WizardModalProps> = ({
 
   // Form State Step 1
   const [biodata, setBiodata] = useState<BiodataData>({
-    nik: pendaftaran.biodata?.nik || pendaftaran.userNik || "3201123456780001",
-    namaLengkap: pendaftaran.biodata?.namaLengkap || pendaftaran.userName || "Yosep Rohayadi",
-    tempatLahir: pendaftaran.biodata?.tempatLahir || "Bandung",
-    tglLahir: pendaftaran.biodata?.tglLahir || "1995-08-17",
-    jenisKelamin: pendaftaran.biodata?.jenisKelamin || "L",
-    alamat: pendaftaran.biodata?.alamat || "Jl. Kebon Sirih No. 12",
-    provinsi: pendaftaran.biodata?.provinsi || "Jawa Barat",
-    kabupatenKota: pendaftaran.biodata?.kabupatenKota || "Kota Bandung",
-    kecamatan: pendaftaran.biodata?.kecamatan || "Coblong",
-    kelurahan: pendaftaran.biodata?.kelurahan || "Dago",
-    noHp: pendaftaran.biodata?.noHp || "081234567890",
-    email: pendaftaran.biodata?.email || "yosep@example.com",
+    nik: pendaftaran.biodata?.nik || pendaftaran.userNik || "",
+    namaLengkap: pendaftaran.biodata?.namaLengkap || pendaftaran.userName || "",
+    tempatLahir: pendaftaran.biodata?.tempatLahir || "",
+    tglLahir: pendaftaran.biodata?.tglLahir || "",
+    jenisKelamin: pendaftaran.biodata?.jenisKelamin || "",
+    alamat: pendaftaran.biodata?.alamat || "",
+    provinsi: pendaftaran.biodata?.provinsi || "",
+    kabupatenKota: pendaftaran.biodata?.kabupatenKota || "",
+    kecamatan: pendaftaran.biodata?.kecamatan || "",
+    kelurahan: pendaftaran.biodata?.kelurahan || "",
+    noHp: pendaftaran.biodata?.noHp || "",
+    email: pendaftaran.biodata?.email || "",
   });
 
   // Form State Step 2
   const [pendidikan, setPendidikan] = useState<PendidikanData>({
-    pendidikanTerakhir: pendaftaran.pendidikan?.pendidikanTerakhir || "S1 (Sarjana)",
-    namaInstansi: pendaftaran.pendidikan?.namaInstansi || "Universitas Komputer Indonesia",
-    jurusan: pendaftaran.pendidikan?.jurusan || "Teknik Informatika",
-    pekerjaanSaatIni: pendaftaran.pendidikan?.pekerjaanSaatIni || "Software Developer / Freelancer",
+    pendidikanTerakhir: pendaftaran.pendidikan?.pendidikanTerakhir || "",
+    namaInstansi: pendaftaran.pendidikan?.namaInstansi || "",
+    jurusan: pendaftaran.pendidikan?.jurusan || "",
+    pekerjaanSaatIni: pendaftaran.pendidikan?.pekerjaanSaatIni || "",
   });
 
   // Form State Step 3 (Documents)
@@ -55,42 +55,34 @@ export const WizardModal: React.FC<WizardModalProps> = ({
           {
             persyaratanId: "req-ktp",
             namaPersyaratan: "Upload KTP",
-            fileName: "ktp_yosep.jpg",
-            fileSize: "1.2 MB",
+            fileName: "",
+            fileSize: "",
             mimeType: "image/jpeg",
             format: "JPG",
-            isSesuai: true,
           },
           {
             persyaratanId: "req-kk",
             namaPersyaratan: "Upload Kartu Keluarga (KK)",
-            fileName: "kk_yosep.pdf",
-            fileSize: "1.8 MB",
+            fileName: "",
+            fileSize: "",
             mimeType: "application/pdf",
             format: "PDF",
-            isSesuai: true,
           },
           {
             persyaratanId: "req-ijazah",
             namaPersyaratan: "Upload Ijazah Terakhir",
-            fileName: "ijazah_yosep.pdf",
-            fileSize: "1.9 MB",
+            fileName: "",
+            fileSize: "",
             mimeType: "application/pdf",
             format: "PDF",
-            isSesuai: !isRevisionMode,
-            isRejected: isRevisionMode,
-            catatanRevisi: isRevisionMode
-              ? "File Ijazah buram/tidak terbaca, harap upload ulang."
-              : undefined,
           },
           {
             persyaratanId: "req-rekom",
             namaPersyaratan: "Upload Surat Rekomendasi / Keterangan",
-            fileName: "surat_rekomendasi.pdf",
-            fileSize: "850 KB",
+            fileName: "",
+            fileSize: "",
             mimeType: "application/pdf",
             format: "PDF",
-            isSesuai: true,
           },
         ]
   );
@@ -119,7 +111,11 @@ export const WizardModal: React.FC<WizardModalProps> = ({
       toast.error("Tempat dan tanggal lahir wajib diisi.");
       return false;
     }
-    if (biodata.alamat.trim().length < 10) {
+    if (!biodata.jenisKelamin) {
+      toast.error("Jenis kelamin wajib dipilih.");
+      return false;
+    }
+    if (!biodata.alamat || biodata.alamat.trim().length < 10) {
       toast.error("Alamat domisili minimal 10 karakter.");
       return false;
     }
@@ -132,6 +128,7 @@ export const WizardModal: React.FC<WizardModalProps> = ({
 
   const validateStep2 = () => {
     if (
+      !pendidikan.pendidikanTerakhir ||
       !pendidikan.namaInstansi.trim() ||
       !pendidikan.jurusan.trim() ||
       !pendidikan.pekerjaanSaatIni.trim()
@@ -426,11 +423,12 @@ export const WizardModal: React.FC<WizardModalProps> = ({
                           onChange={(e) =>
                             setBiodata({
                               ...biodata,
-                              jenisKelamin: e.target.value as "L" | "P",
+                              jenisKelamin: e.target.value as "L" | "P" | "",
                             })
                           }
                           required
                         >
+                          <option value="">Pilih Jenis Kelamin...</option>
                           <option value="L">Laki-laki</option>
                           <option value="P">Perempuan</option>
                         </select>
@@ -458,6 +456,7 @@ export const WizardModal: React.FC<WizardModalProps> = ({
                           onChange={(e) => setBiodata({ ...biodata, provinsi: e.target.value })}
                           required
                         >
+                          <option value="">Pilih Provinsi...</option>
                           <option value="Jawa Barat">Jawa Barat</option>
                           <option value="DKI Jakarta">DKI Jakarta</option>
                           <option value="Jawa Tengah">Jawa Tengah</option>
@@ -476,6 +475,7 @@ export const WizardModal: React.FC<WizardModalProps> = ({
                           }
                           required
                         >
+                          <option value="">Pilih Kabupaten/Kota...</option>
                           <option value="Kota Bandung">Kota Bandung</option>
                           <option value="Kab. Bogor">Kab. Bogor</option>
                           <option value="Kota Jakarta Pusat">Kota Jakarta Pusat</option>
@@ -492,6 +492,7 @@ export const WizardModal: React.FC<WizardModalProps> = ({
                           onChange={(e) => setBiodata({ ...biodata, kecamatan: e.target.value })}
                           required
                         >
+                          <option value="">Pilih Kecamatan...</option>
                           <option value="Coblong">Coblong</option>
                           <option value="Cicendo">Cicendo</option>
                           <option value="Sukasari">Sukasari</option>
@@ -507,6 +508,7 @@ export const WizardModal: React.FC<WizardModalProps> = ({
                           onChange={(e) => setBiodata({ ...biodata, kelurahan: e.target.value })}
                           required
                         >
+                          <option value="">Pilih Kelurahan...</option>
                           <option value="Dago">Dago</option>
                           <option value="Pasirkaliki">Pasirkaliki</option>
                           <option value="Lebakgede">Lebakgede</option>
@@ -564,6 +566,7 @@ export const WizardModal: React.FC<WizardModalProps> = ({
                           }
                           required
                         >
+                          <option value="">Pilih Jenjang Pendidikan...</option>
                           <option value="SMA/SMK Sederajat">SMA/SMK Sederajat</option>
                           <option value="D3 / D4">D3 / D4</option>
                           <option value="S1 (Sarjana)">S1 (Sarjana)</option>

@@ -120,23 +120,29 @@ export const WizardReadonlyModal: React.FC<WizardReadonlyModalProps> = ({
                         <input
                           type="text"
                           className="form-control"
-                          value={bio?.tempatLahir || "Bandung"}
+                          value={bio?.tempatLahir || "-"}
                           disabled
                         />
                       </div>
                       <div className="col-md-4">
                         <label className="form-label">Tanggal Lahir</label>
                         <input
-                          type="date"
+                          type="text"
                           className="form-control"
-                          value={bio?.tglLahir || "1995-08-17"}
+                          value={bio?.tglLahir || "-"}
                           disabled
                         />
                       </div>
                       <div className="col-md-4">
                         <label className="form-label">Jenis Kelamin</label>
                         <select className="form-select" disabled>
-                          <option>{bio?.jenisKelamin === "P" ? "Perempuan" : "Laki-laki"}</option>
+                          <option>
+                            {bio?.jenisKelamin === "P"
+                              ? "Perempuan"
+                              : bio?.jenisKelamin === "L"
+                              ? "Laki-laki"
+                              : "-"}
+                          </option>
                         </select>
                       </div>
                       <div className="col-md-12">
@@ -144,7 +150,7 @@ export const WizardReadonlyModal: React.FC<WizardReadonlyModalProps> = ({
                         <textarea
                           className="form-control"
                           rows={2}
-                          value={bio?.alamat || "Jl. Kebon Sirih No. 12"}
+                          value={bio?.alamat || "-"}
                           disabled
                         />
                       </div>
@@ -153,7 +159,7 @@ export const WizardReadonlyModal: React.FC<WizardReadonlyModalProps> = ({
                         <input
                           type="text"
                           className="form-control"
-                          value={bio?.provinsi || "Jawa Barat"}
+                          value={bio?.provinsi || "-"}
                           disabled
                         />
                       </div>
@@ -162,7 +168,7 @@ export const WizardReadonlyModal: React.FC<WizardReadonlyModalProps> = ({
                         <input
                           type="text"
                           className="form-control"
-                          value={bio?.kabupatenKota || "Kota Bandung"}
+                          value={bio?.kabupatenKota || "-"}
                           disabled
                         />
                       </div>
@@ -171,7 +177,7 @@ export const WizardReadonlyModal: React.FC<WizardReadonlyModalProps> = ({
                         <input
                           type="text"
                           className="form-control"
-                          value={bio?.kecamatan || "Coblong"}
+                          value={bio?.kecamatan || "-"}
                           disabled
                         />
                       </div>
@@ -180,7 +186,7 @@ export const WizardReadonlyModal: React.FC<WizardReadonlyModalProps> = ({
                         <input
                           type="text"
                           className="form-control"
-                          value={bio?.kelurahan || "Dago"}
+                          value={bio?.kelurahan || "-"}
                           disabled
                         />
                       </div>
@@ -189,7 +195,7 @@ export const WizardReadonlyModal: React.FC<WizardReadonlyModalProps> = ({
                         <input
                           type="text"
                           className="form-control"
-                          value={bio?.noHp || "081234567890"}
+                          value={bio?.noHp || "-"}
                           disabled
                         />
                       </div>
@@ -198,7 +204,7 @@ export const WizardReadonlyModal: React.FC<WizardReadonlyModalProps> = ({
                         <input
                           type="email"
                           className="form-control"
-                          value={bio?.email || "yosep@example.com"}
+                          value={bio?.email || "-"}
                           disabled
                         />
                       </div>
@@ -217,7 +223,7 @@ export const WizardReadonlyModal: React.FC<WizardReadonlyModalProps> = ({
                         <input
                           type="text"
                           className="form-control"
-                          value={pend?.pendidikanTerakhir || "S1 (Sarjana)"}
+                          value={pend?.pendidikanTerakhir || "-"}
                           disabled
                         />
                       </div>
@@ -226,7 +232,7 @@ export const WizardReadonlyModal: React.FC<WizardReadonlyModalProps> = ({
                         <input
                           type="text"
                           className="form-control"
-                          value={pend?.namaInstansi || "Universitas Komputer Indonesia"}
+                          value={pend?.namaInstansi || "-"}
                           disabled
                         />
                       </div>
@@ -235,7 +241,7 @@ export const WizardReadonlyModal: React.FC<WizardReadonlyModalProps> = ({
                         <input
                           type="text"
                           className="form-control"
-                          value={pend?.jurusan || "Teknik Informatika"}
+                          value={pend?.jurusan || "-"}
                           disabled
                         />
                       </div>
@@ -244,7 +250,7 @@ export const WizardReadonlyModal: React.FC<WizardReadonlyModalProps> = ({
                         <input
                           type="text"
                           className="form-control"
-                          value={pend?.pekerjaanSaatIni || "Software Developer / Freelancer"}
+                          value={pend?.pekerjaanSaatIni || "-"}
                           disabled
                         />
                       </div>

@@ -46,7 +46,7 @@ export const VerifikasiModal: React.FC<VerifikasiModalProps> = ({
         setCatatanVerifikator(pendaftaran.verifikasi.catatanVerifikator || "");
       } else {
         setStatusKeputusan("disetujui");
-        setCatatanVerifikator("Seluruh berkas persyaratan telah diverifikasi dan memenuhi syarat.");
+        setCatatanVerifikator("");
       }
     }
   }, [pendaftaran]);
@@ -233,7 +233,7 @@ export const VerifikasiModal: React.FC<VerifikasiModalProps> = ({
                             Tempat, Tanggal Lahir
                           </label>
                           <div className="fw-semibold text-dark bg-light p-2 rounded border">
-                            {bio?.tempatLahir || "Bandung"}, {bio?.tglLahir || "17 Agustus 1995"}
+                            {bio?.tempatLahir || "-"}, {bio?.tglLahir || "-"}
                           </div>
                         </div>
                         <div className="col-md-4">
@@ -242,14 +242,14 @@ export const VerifikasiModal: React.FC<VerifikasiModalProps> = ({
                           </label>
                           <div className="fw-semibold text-dark bg-light p-2 rounded border">
                             <i className="bi bi-whatsapp text-success me-1"></i>{" "}
-                            {bio?.noHp || "081234567890"}
+                            {bio?.noHp || "-"}
                           </div>
                         </div>
                         <div className="col-md-4">
                           <label className="text-muted extra-small d-block mb-1">Alamat Email</label>
                           <div className="fw-semibold text-dark bg-light p-2 rounded border">
                             <i className="bi bi-envelope me-1 text-primary"></i>{" "}
-                            {bio?.email || "yosep@example.com"}
+                            {bio?.email || "-"}
                           </div>
                         </div>
 
@@ -258,32 +258,32 @@ export const VerifikasiModal: React.FC<VerifikasiModalProps> = ({
                             Alamat Domisili Lengkap
                           </label>
                           <div className="fw-semibold text-dark bg-light p-2 rounded border">
-                            {bio?.alamat || "Jl. Kebon Sirih No. 12"}
+                            {bio?.alamat || "-"}
                           </div>
                         </div>
 
                         <div className="col-md-3">
                           <label className="text-muted extra-small d-block mb-1">Provinsi</label>
                           <div className="bg-light p-2 rounded border small">
-                            {bio?.provinsi || "Jawa Barat"}
+                            {bio?.provinsi || "-"}
                           </div>
                         </div>
                         <div className="col-md-3">
                           <label className="text-muted extra-small d-block mb-1">Kabupaten/Kota</label>
                           <div className="bg-light p-2 rounded border small">
-                            {bio?.kabupatenKota || "Kota Bandung"}
+                            {bio?.kabupatenKota || "-"}
                           </div>
                         </div>
                         <div className="col-md-3">
                           <label className="text-muted extra-small d-block mb-1">Kecamatan</label>
                           <div className="bg-light p-2 rounded border small">
-                            {bio?.kecamatan || "Coblong"}
+                            {bio?.kecamatan || "-"}
                           </div>
                         </div>
                         <div className="col-md-3">
                           <label className="text-muted extra-small d-block mb-1">Kelurahan</label>
                           <div className="bg-light p-2 rounded border small">
-                            {bio?.kelurahan || "Dago"}
+                            {bio?.kelurahan || "-"}
                           </div>
                         </div>
                       </div>
@@ -304,7 +304,7 @@ export const VerifikasiModal: React.FC<VerifikasiModalProps> = ({
                             Pendidikan Terakhir
                           </label>
                           <div className="fw-bold text-dark bg-light p-2 rounded border">
-                            {pend?.pendidikanTerakhir || "D3 / S1 (Sarjana)"}
+                            {pend?.pendidikanTerakhir || "-"}
                           </div>
                         </div>
                         <div className="col-md-6">
@@ -312,7 +312,7 @@ export const VerifikasiModal: React.FC<VerifikasiModalProps> = ({
                             Nama Instansi / Sekolah / Universitas
                           </label>
                           <div className="fw-bold text-dark bg-light p-2 rounded border">
-                            {pend?.namaInstansi || "Universitas Komputer Indonesia"}
+                            {pend?.namaInstansi || "-"}
                           </div>
                         </div>
                         <div className="col-md-6">
@@ -320,7 +320,7 @@ export const VerifikasiModal: React.FC<VerifikasiModalProps> = ({
                             Jurusan / Program Studi
                           </label>
                           <div className="fw-semibold text-dark bg-light p-2 rounded border">
-                            {pend?.jurusan || "Teknik Informatika"}
+                            {pend?.jurusan || "-"}
                           </div>
                         </div>
                         <div className="col-md-6">
@@ -328,7 +328,7 @@ export const VerifikasiModal: React.FC<VerifikasiModalProps> = ({
                             Pekerjaan Saat Ini
                           </label>
                           <div className="fw-semibold text-dark bg-light p-2 rounded border">
-                            {pend?.pekerjaanSaatIni || "Software Developer / Freelancer"}
+                            {pend?.pekerjaanSaatIni || "-"}
                           </div>
                         </div>
                       </div>

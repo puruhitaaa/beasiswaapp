@@ -28,7 +28,7 @@ export interface BiodataData {
   namaLengkap: string;
   tempatLahir: string;
   tglLahir: string;
-  jenisKelamin: "L" | "P";
+  jenisKelamin: "L" | "P" | "";
   alamat: string;
   provinsi: string;
   kabupatenKota: string;

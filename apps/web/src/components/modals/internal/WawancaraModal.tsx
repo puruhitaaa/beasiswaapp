@@ -17,9 +17,9 @@ export const WawancaraModal: React.FC<WawancaraModalProps> = ({
   pendaftaran,
   onSuccess,
 }) => {
-  const [skorKomunikasi, setSkorKomunikasi] = useState<number>(85);
-  const [skorTeknis, setSkorTeknis] = useState<number>(88);
-  const [skorKomitmen, setSkorKomitmen] = useState<number>(90);
+  const [skorKomunikasi, setSkorKomunikasi] = useState<number | "">("");
+  const [skorTeknis, setSkorTeknis] = useState<number | "">("");
+  const [skorKomitmen, setSkorKomitmen] = useState<number | "">("");
   const [statusWawancara, setStatusWawancara] = useState<"Lulus" | "Tidak Lulus">("Lulus");
   const [catatanEvaluasi, setCatatanEvaluasi] = useState("");
 
@@ -30,30 +30,36 @@ export const WawancaraModal: React.FC<WawancaraModalProps> = ({
         setSkorTeknis(pendaftaran.wawancara.skorTeknis);
         setSkorKomitmen(pendaftaran.wawancara.skorKomitmen);
         setStatusWawancara(pendaftaran.wawancara.statusHasil);
-        setCatatanEvaluasi(pendaftaran.wawancara.catatanEvaluasi);
+        setCatatanEvaluasi(pendaftaran.wawancara.catatanEvaluasi || "");
       } else {
-        setSkorKomunikasi(85);
-        setSkorTeknis(88);
-        setSkorKomitmen(90);
+        setSkorKomunikasi("");
+        setSkorTeknis("");
+        setSkorKomitmen("");
         setStatusWawancara("Lulus");
-        setCatatanEvaluasi(
-          "Peserta memiliki pemahaman logika pemrograman dasar yang sangat baik dan bersedia berkomitmen penuh mengikuti seluruh rangkaian pelatihan hingga selesai."
-        );
+        setCatatanEvaluasi("");
       }
     }
   }, [pendaftaran]);
 
   if (!isOpen || !pendaftaran) return null;
 
+  const numKomunikasi = typeof skorKomunikasi === "number" ? skorKomunikasi : 0;
+  const numTeknis = typeof skorTeknis === "number" ? skorTeknis : 0;
+  const numKomitmen = typeof skorKomitmen === "number" ? skorKomitmen : 0;
+
   // Formula exact: (K * 0.3) + (T * 0.4) + (M * 0.3)
   const nilaiAkhir = (
-    skorKomunikasi * 0.3 +
-    skorTeknis * 0.4 +
-    skorKomitmen * 0.3
+    numKomunikasi * 0.3 +
+    numTeknis * 0.4 +
+    numKomitmen * 0.3
   ).toFixed(2);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (skorKomunikasi === "" || skorTeknis === "" || skorKomitmen === "") {
+      toast.error("Harap isi semua skor penilaian wawancara.");
+      return;
+    }
     if (!catatanEvaluasi.trim()) {
       toast.error("Catatan evaluasi wajib diisi.");
       return;
@@ -61,9 +67,9 @@ export const WawancaraModal: React.FC<WawancaraModalProps> = ({
 
     try {
       await transaksiApi.submitWawancaraScoring(pendaftaran.id, {
-        skorKomunikasi,
-        skorTeknis,
-        skorKomitmen,
+        skorKomunikasi: Number(skorKomunikasi),
+        skorTeknis: Number(skorTeknis),
+        skorKomitmen: Number(skorKomitmen),
         nilaiWawancara: Number(nilaiAkhir),
         statusHasil: statusWawancara,
         catatanEvaluasi,
@@ -71,9 +77,9 @@ export const WawancaraModal: React.FC<WawancaraModalProps> = ({
 
       appStore.submitWawancaraScoring(
         pendaftaran.id,
-        skorKomunikasi,
-        skorTeknis,
-        skorKomitmen,
+        Number(skorKomunikasi),
+        Number(skorTeknis),
+        Number(skorKomitmen),
         statusWawancara,
         catatanEvaluasi
       );
@@ -158,14 +164,16 @@ export const WawancaraModal: React.FC<WawancaraModalProps> = ({
                         <input
                           type="number"
                           className="form-control"
+                          placeholder="0 - 100"
                           min={0}
                           max={100}
                           value={skorKomunikasi}
-                          onChange={(e) =>
+                          onChange={(e) => {
+                            const val = e.target.value;
                             setSkorKomunikasi(
-                              Math.max(0, Math.min(100, Number(e.target.value) || 0))
-                            )
-                          }
+                              val === "" ? "" : Math.max(0, Math.min(100, Number(val)))
+                            );
+                          }}
                           required
                         />
                       </div>
@@ -176,14 +184,16 @@ export const WawancaraModal: React.FC<WawancaraModalProps> = ({
                         <input
                           type="number"
                           className="form-control"
+                          placeholder="0 - 100"
                           min={0}
                           max={100}
                           value={skorTeknis}
-                          onChange={(e) =>
+                          onChange={(e) => {
+                            const val = e.target.value;
                             setSkorTeknis(
-                              Math.max(0, Math.min(100, Number(e.target.value) || 0))
-                            )
-                          }
+                              val === "" ? "" : Math.max(0, Math.min(100, Number(val)))
+                            );
+                          }}
                           required
                         />
                       </div>
@@ -194,14 +204,16 @@ export const WawancaraModal: React.FC<WawancaraModalProps> = ({
                         <input
                           type="number"
                           className="form-control"
+                          placeholder="0 - 100"
                           min={0}
                           max={100}
                           value={skorKomitmen}
-                          onChange={(e) =>
+                          onChange={(e) => {
+                            const val = e.target.value;
                             setSkorKomitmen(
-                              Math.max(0, Math.min(100, Number(e.target.value) || 0))
-                            )
-                          }
+                              val === "" ? "" : Math.max(0, Math.min(100, Number(val)))
+                            );
+                          }}
                           required
                         />
                       </div>

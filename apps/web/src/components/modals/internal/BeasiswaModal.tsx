@@ -11,10 +11,10 @@ interface BeasiswaModalProps {
 
 export const BeasiswaModal: React.FC<BeasiswaModalProps> = ({ isOpen, onClose, onSuccess }) => {
   const [namaPelatihan, setNamaPelatihan] = useState("");
-  const [kuota, setKuota] = useState(50);
+  const [kuota, setKuota] = useState<number | "">("");
   const [metode, setMetode] = useState("Daring (Online)");
   const [deskripsi, setDeskripsi] = useState("");
-  const [batasPendaftaran, setBatasPendaftaran] = useState("31 Des 2026");
+  const [batasPendaftaran, setBatasPendaftaran] = useState("");
 
   if (!isOpen) return null;
 
@@ -24,15 +24,19 @@ export const BeasiswaModal: React.FC<BeasiswaModalProps> = ({ isOpen, onClose, o
       toast.error("Nama program beasiswa wajib diisi.");
       return;
     }
+    if (!kuota || Number(kuota) <= 0) {
+      toast.error("Kuota peserta minimal 1.");
+      return;
+    }
 
     try {
       await masterApi.createBeasiswa({
         kodeBeasiswa: `PRG-${Date.now().toString().slice(-4)}`,
         namaPelatihan,
         deskripsi: deskripsi || "Program pelatihan kejuruan bersertifikat resmi.",
-        kuota,
+        kuota: Number(kuota),
         metode,
-        batasPendaftaran,
+        batasPendaftaran: batasPendaftaran || "-",
         tglMulaiDaftar: new Date().toISOString(),
         tglSelesaiDaftar: "2026-12-31T23:59:59Z",
       });
@@ -41,9 +45,9 @@ export const BeasiswaModal: React.FC<BeasiswaModalProps> = ({ isOpen, onClose, o
         kodeBeasiswa: `PRG-${Date.now().toString().slice(-4)}`,
         namaPelatihan,
         deskripsi: deskripsi || "Program pelatihan kejuruan bersertifikat resmi.",
-        kuota,
+        kuota: Number(kuota),
         metode,
-        batasPendaftaran,
+        batasPendaftaran: batasPendaftaran || "-",
         status: "buka",
         isActive: true,
         persyaratanKhusus: [
@@ -107,9 +111,13 @@ export const BeasiswaModal: React.FC<BeasiswaModalProps> = ({ isOpen, onClose, o
                   <input
                     type="number"
                     className="form-control"
+                    placeholder="Contoh: 50"
                     min={1}
                     value={kuota}
-                    onChange={(e) => setKuota(Number(e.target.value) || 1)}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      setKuota(val === "" ? "" : Math.max(1, Number(val)));
+                    }}
                     required
                   />
                 </div>
@@ -130,8 +138,10 @@ export const BeasiswaModal: React.FC<BeasiswaModalProps> = ({ isOpen, onClose, o
                   <input
                     type="text"
                     className="form-control"
+                    placeholder="Contoh: 31 Des 2026"
                     value={batasPendaftaran}
                     onChange={(e) => setBatasPendaftaran(e.target.value)}
+                    required
                   />
                 </div>
                 <button type="submit" className="btn btn-primary w-100">

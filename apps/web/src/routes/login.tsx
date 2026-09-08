@@ -9,8 +9,8 @@ export const Route = createFileRoute("/login")({
 });
 
 function InternalLoginComponent() {
-  const [username, setUsername] = useState("ahmad@beasiswa.go.id");
-  const [password, setPassword] = useState("password123");
+  const [username, setUsername] = useState("");
+  const [password, setPassword] = useState("");
   const [role, setRole] = useState<"verifikator" | "interviewer" | "admin">("verifikator");
   const [rememberMe, setRememberMe] = useState(true);
   const navigate = useNavigate();
@@ -18,13 +18,6 @@ function InternalLoginComponent() {
   const handleRoleChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const selected = e.target.value as "verifikator" | "interviewer" | "admin";
     setRole(selected);
-    if (selected === "verifikator") {
-      setUsername("ahmad@beasiswa.go.id");
-    } else if (selected === "interviewer") {
-      setUsername("interviewer@beasiswa.go.id");
-    } else if (selected === "admin") {
-      setUsername("admin@beasiswa.go.id");
-    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -34,12 +27,15 @@ function InternalLoginComponent() {
       return;
     }
 
-    let name = "Ahmad Rivaldi";
-    if (role === "interviewer") name = "Tim Penguji: Lembaga Seleksi A";
-    if (role === "admin") name = "Admin: Yosep Rohayadi";
+    const derivedName = username.includes("@")
+      ? username.split("@")[0].replace(/[._]/g, " ")
+      : username;
+    const formattedName = derivedName
+      ? derivedName.charAt(0).toUpperCase() + derivedName.slice(1)
+      : role.toUpperCase();
 
     try {
-      const res = await authApi.login(username, role, name);
+      const res = await authApi.login(username, role, formattedName);
       appStore.setCurrentUser(res.user);
 
       toast.success(`Berhasil masuk sebagai ${role.toUpperCase()}!`);
