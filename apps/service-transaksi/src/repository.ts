@@ -31,6 +31,7 @@ class TransaksiRepository {
       include: {
         biodata: true,
         pendidikan: true,
+        dokumen: true,
         verifikasi: true,
         wawancara: true,
       },
@@ -52,6 +53,7 @@ class TransaksiRepository {
       include: {
         biodata: true,
         pendidikan: true,
+        dokumen: true,
         verifikasi: true,
         wawancara: true,
       },
@@ -78,6 +80,7 @@ class TransaksiRepository {
       include: {
         biodata: true,
         pendidikan: true,
+        dokumen: true,
       },
     });
     return created as any;
@@ -94,6 +97,7 @@ class TransaksiRepository {
       include: {
         biodata: true,
         pendidikan: true,
+        dokumen: true,
         verifikasi: true,
         wawancara: true,
       },
@@ -183,16 +187,61 @@ class TransaksiRepository {
     return this.findUnique(pendaftaranId);
   }
 
-  async upsertDokumen(pendaftaranId: string, _dokumenList: any[]) {
+  async upsertDokumen(pendaftaranId: string, dokumenList: any[]) {
     const existing = await this.findUnique(pendaftaranId);
     if (!existing) throw new Error("Permohonan tidak ditemukan.");
 
     const nextStep = Math.max(existing.stepWizardTerakhir, 4);
 
-    await prisma.pendaftaran.update({
-      where: { id: pendaftaranId },
-      data: { stepWizardTerakhir: nextStep },
-    });
+    if (Array.isArray(dokumenList) && dokumenList.length > 0) {
+      await prisma.$transaction([
+        ...dokumenList.map((doc: any) =>
+          prisma.dokumenPendaftaran.upsert({
+            where: {
+              pendaftaranId_persyaratanId: {
+                pendaftaranId,
+                persyaratanId: doc.persyaratanId,
+              },
+            },
+            create: {
+              pendaftaranId,
+              persyaratanId: doc.persyaratanId,
+              namaPersyaratan: doc.namaPersyaratan || null,
+              dokumenId: doc.dokumenId || doc.id || null,
+              fileName: doc.fileName || "",
+              fileSize: doc.fileSize || null,
+              mimeType: doc.mimeType || null,
+              format: doc.format || null,
+              fileUrl: doc.fileUrl || (doc.dokumenId || doc.id ? `/api/dokumen/${doc.dokumenId || doc.id}/view` : null),
+              isSesuai: doc.isSesuai !== undefined ? doc.isSesuai : true,
+              isRejected: doc.isRejected !== undefined ? doc.isRejected : false,
+              catatanRevisi: doc.catatanRevisi || null,
+            },
+            update: {
+              namaPersyaratan: doc.namaPersyaratan || undefined,
+              dokumenId: doc.dokumenId || doc.id || undefined,
+              fileName: doc.fileName !== undefined ? doc.fileName : undefined,
+              fileSize: doc.fileSize || undefined,
+              mimeType: doc.mimeType || undefined,
+              format: doc.format || undefined,
+              fileUrl: doc.fileUrl || (doc.dokumenId || doc.id ? `/api/dokumen/${doc.dokumenId || doc.id}/view` : undefined),
+              isSesuai: doc.isSesuai !== undefined ? doc.isSesuai : undefined,
+              isRejected: doc.isRejected !== undefined ? doc.isRejected : undefined,
+              catatanRevisi: doc.catatanRevisi !== undefined ? doc.catatanRevisi : undefined,
+            },
+          })
+        ),
+        prisma.pendaftaran.update({
+          where: { id: pendaftaranId },
+          data: { stepWizardTerakhir: nextStep },
+        }),
+      ]);
+    } else {
+      await prisma.pendaftaran.update({
+        where: { id: pendaftaranId },
+        data: { stepWizardTerakhir: nextStep },
+      });
+    }
 
     return this.findUnique(pendaftaranId);
   }
@@ -211,6 +260,7 @@ class TransaksiRepository {
       include: {
         biodata: true,
         pendidikan: true,
+        dokumen: true,
         verifikasi: true,
         wawancara: true,
       },
@@ -227,6 +277,7 @@ class TransaksiRepository {
       checklistKk?: boolean;
       checklistIjazah?: boolean;
       checklistRekomendasi?: boolean;
+      checklistDokumen?: Record<string, { isSesuai?: boolean; catatanPerbaikan?: string }>;
     }
   ) {
     const existing = await this.findUnique(pendaftaranId);
@@ -270,6 +321,26 @@ class TransaksiRepository {
         data: { status: newStatus },
       }),
     ]);
+
+    const docCheckMap: Record<string, { isSesuai?: boolean; catatan?: string }> = {
+      "req-ktp": { isSesuai: data.checklistKtp, catatan: data.checklistDokumen?.["req-ktp"]?.catatanPerbaikan },
+      "req-kk": { isSesuai: data.checklistKk, catatan: data.checklistDokumen?.["req-kk"]?.catatanPerbaikan },
+      "req-ijazah": { isSesuai: data.checklistIjazah, catatan: data.checklistDokumen?.["req-ijazah"]?.catatanPerbaikan },
+      "req-rekom": { isSesuai: data.checklistRekomendasi, catatan: data.checklistDokumen?.["req-rekom"]?.catatanPerbaikan },
+    };
+
+    for (const [persyaratanId, check] of Object.entries(docCheckMap)) {
+      if (check.isSesuai !== undefined) {
+        await prisma.dokumenPendaftaran.updateMany({
+          where: { pendaftaranId, persyaratanId },
+          data: {
+            isSesuai: check.isSesuai,
+            isRejected: !check.isSesuai,
+            catatanRevisi: !check.isSesuai ? (check.catatan || data.catatanRevisi || "Perlu revisi dokumen") : null,
+          },
+        });
+      }
+    }
 
     return this.findUnique(pendaftaranId);
   }
@@ -357,7 +428,7 @@ class TransaksiRepository {
           ],
         },
       },
-      include: { biodata: true, pendidikan: true, verifikasi: true },
+      include: { biodata: true, pendidikan: true, dokumen: true, verifikasi: true },
       orderBy: { submittedAt: "asc" },
     });
     return list as any;
@@ -375,7 +446,7 @@ class TransaksiRepository {
           ],
         },
       },
-      include: { biodata: true, pendidikan: true, wawancara: true },
+      include: { biodata: true, pendidikan: true, dokumen: true, wawancara: true },
       orderBy: { updatedAt: "desc" },
     });
     return list as any;
@@ -383,7 +454,7 @@ class TransaksiRepository {
 
   async getAll(): Promise<TransaksiRecord[]> {
     const list = await prisma.pendaftaran.findMany({
-      include: { biodata: true, pendidikan: true, verifikasi: true, wawancara: true },
+      include: { biodata: true, pendidikan: true, dokumen: true, verifikasi: true, wawancara: true },
       orderBy: { createdAt: "desc" },
     });
     return list as any;

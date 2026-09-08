@@ -103,6 +103,12 @@ describe("Business Rules & FSM Verification", () => {
       },
     ]);
     expect(afterStep3.stepWizardTerakhir).toBe(4);
+    expect(afterStep3.dokumen).toBeDefined();
+    expect(afterStep3.dokumen.some((d: any) => d.fileName === "ktp_budi.jpg")).toBe(true);
+
+    // Verify persistence upon reloading
+    const reloaded = await repository.findUnique(app.id);
+    expect(reloaded?.dokumen?.some((d: any) => d.fileName === "ktp_budi.jpg")).toBe(true);
 
     // Step 4: Submit Final
     const submitted = await repository.update(app.id, {

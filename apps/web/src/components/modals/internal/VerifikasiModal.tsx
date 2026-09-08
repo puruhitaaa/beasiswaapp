@@ -3,6 +3,7 @@ import { useForm } from "@tanstack/react-form";
 import { toast } from "sonner";
 import { z } from "zod";
 import { appStore } from "@/lib/store";
+import { dokumenApi } from "@/lib/api";
 import { useSubmitVerifikasiMutation } from "@/hooks/use-transaksi-queries";
 import type { PendaftaranRecord } from "@/types";
 
@@ -401,12 +402,13 @@ export const VerifikasiModal: React.FC<VerifikasiModalProps> = ({
                                     <button
                                       type="button"
                                       className="btn btn-sm btn-outline-primary w-100"
-                                      onClick={() =>
+                                      onClick={() => {
+                                        const docId = doc.dokumenId || doc.id;
                                         onPreviewFile?.(
                                           doc.fileName || doc.namaPersyaratan,
-                                          doc.fileUrl || (doc.id ? `/api/dokumen/${doc.id}/view` : undefined)
-                                        )
-                                      }
+                                          doc.fileUrl || (docId ? dokumenApi.getViewUrl(docId) : undefined)
+                                        );
+                                      }}
                                     >
                                       <i className="bi bi-eye me-1"></i>Pratinjau
                                     </button>

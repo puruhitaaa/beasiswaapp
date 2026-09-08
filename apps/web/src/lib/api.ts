@@ -358,10 +358,12 @@ export const dokumenApi = {
   },
 
   getViewUrl(docId: string) {
-    return `${API_BASE_URL}/api/dokumen/${docId}/view`;
+    const token = getStoredToken();
+    return `${API_BASE_URL}/api/dokumen/${docId}/view${token ? `?token=${encodeURIComponent(token)}` : ""}`;
   },
 
   getDownloadUrl(docId: string) {
-    return `${API_BASE_URL}/api/dokumen/${docId}/download`;
+    const token = getStoredToken();
+    return `${API_BASE_URL}/api/dokumen/${docId}/download${token ? `?token=${encodeURIComponent(token)}` : ""}`;
   },
 };

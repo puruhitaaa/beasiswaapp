@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { transaksiApi, getStoredUser } from "@/lib/api";
+import { transaksiApi, dokumenApi, getStoredUser } from "@/lib/api";
 import { queryKeys } from "@/lib/query-client";
 import type {
   ApplicationStatus,
@@ -8,6 +8,74 @@ import type {
   PendaftaranRecord,
   PendidikanData,
 } from "@/types";
+
+export const DEFAULT_DOKUMEN_REQUIREMENTS: DokumenUploadItem[] = [
+  {
+    persyaratanId: "req-ktp",
+    namaPersyaratan: "KTP (Kartu Tanda Penduduk)",
+    fileName: "",
+    fileSize: "",
+    mimeType: "image/jpeg",
+    format: "JPG",
+    isSesuai: true,
+    isRejected: false,
+  },
+  {
+    persyaratanId: "req-kk",
+    namaPersyaratan: "KK (Kartu Keluarga)",
+    fileName: "",
+    fileSize: "",
+    mimeType: "application/pdf",
+    format: "PDF",
+    isSesuai: true,
+    isRejected: false,
+  },
+  {
+    persyaratanId: "req-ijazah",
+    namaPersyaratan: "Ijazah Terakhir",
+    fileName: "",
+    fileSize: "",
+    mimeType: "application/pdf",
+    format: "PDF",
+    isSesuai: true,
+    isRejected: false,
+  },
+  {
+    persyaratanId: "req-rekom",
+    namaPersyaratan: "Surat Rekomendasi / Keterangan",
+    fileName: "",
+    fileSize: "",
+    mimeType: "application/pdf",
+    format: "PDF",
+    isSesuai: true,
+    isRejected: false,
+  },
+];
+
+export function mergeWithDefaultDocuments(serverDocs: any[] = []): DokumenUploadItem[] {
+  const docs = Array.isArray(serverDocs) ? serverDocs : [];
+  return DEFAULT_DOKUMEN_REQUIREMENTS.map((req) => {
+    const existing = docs.find((d: any) => d.persyaratanId === req.persyaratanId);
+    if (existing) {
+      const docId = existing.dokumenId || existing.id;
+      return {
+        ...req,
+        ...existing,
+        id: docId || req.id,
+        dokumenId: docId,
+        fileName: existing.fileName || "",
+        fileSize: existing.fileSize || "",
+        mimeType: existing.mimeType || req.mimeType,
+        format: existing.format || req.format,
+        fileUrl: existing.fileUrl || (docId ? dokumenApi.getViewUrl(docId) : undefined),
+        isSesuai: existing.isSesuai !== undefined ? existing.isSesuai : true,
+        isRejected: existing.isRejected !== undefined ? existing.isRejected : false,
+        catatanRevisi: existing.catatanRevisi || undefined,
+      };
+    }
+    return req;
+  });
+}
 
 export function useMyActiveApplication() {
   return useQuery({
@@ -91,43 +159,7 @@ export function useMyActiveApplication() {
                   noHp: "",
                 },
             pendidikan: appRes.pendidikan,
-            dokumen:
-              appRes.dokumen && appRes.dokumen.length > 0
-                ? appRes.dokumen
-                : [
-                    {
-                      persyaratanId: "req-ktp",
-                      namaPersyaratan: "KTP (Kartu Tanda Penduduk)",
-                      fileName: "",
-                      fileSize: "",
-                      mimeType: "image/jpeg",
-                      format: "JPG",
-                    },
-                    {
-                      persyaratanId: "req-kk",
-                      namaPersyaratan: "KK (Kartu Keluarga)",
-                      fileName: "",
-                      fileSize: "",
-                      mimeType: "application/pdf",
-                      format: "PDF",
-                    },
-                    {
-                      persyaratanId: "req-ijazah",
-                      namaPersyaratan: "Ijazah Terakhir",
-                      fileName: "",
-                      fileSize: "",
-                      mimeType: "application/pdf",
-                      format: "PDF",
-                    },
-                    {
-                      persyaratanId: "req-rekom",
-                      namaPersyaratan: "Surat Rekomendasi / Keterangan",
-                      fileName: "",
-                      fileSize: "",
-                      mimeType: "application/pdf",
-                      format: "PDF",
-                    },
-                  ],
+            dokumen: mergeWithDefaultDocuments(appRes.dokumen),
             verifikasi: appRes.verifikasi,
             wawancara: appRes.wawancara,
             daftarUlang: appRes.daftarUlang,
@@ -143,17 +175,6 @@ export function useMyActiveApplication() {
   });
 }
 
-export function useApplicationDetail(id: string) {
-  return useQuery({
-    queryKey: queryKeys.transaksi.detail(id),
-    queryFn: async (): Promise<PendaftaranRecord | null> => {
-      if (!id) return null;
-      return (await transaksiApi.getById(id)) ?? null;
-    },
-    enabled: Boolean(id),
-  });
-}
-
 function mapPendaftaranQueueItem(item: any): PendaftaranRecord {
   const userName = item.biodata?.namaLengkap || item.userName || "-";
   const userNik = item.biodata?.nik || item.userNik || "-";
@@ -165,7 +186,7 @@ function mapPendaftaranQueueItem(item: any): PendaftaranRecord {
     beasiswaNama,
     beasiswaMetode: item.beasiswaMetode || "Daring",
     tipePengajuan: item.tipePengajuan || (item.status === "REVISI" ? "Hasil Revisi" : "Baru Submit"),
-    dokumen: item.dokumen || [],
+    dokumen: mergeWithDefaultDocuments(item.dokumen),
     submittedAt: item.submittedAt
       ? new Date(item.submittedAt).toLocaleDateString("id-ID", {
           day: "2-digit",
@@ -174,6 +195,18 @@ function mapPendaftaranQueueItem(item: any): PendaftaranRecord {
         })
       : item.submittedAt || undefined,
   };
+}
+
+export function useApplicationDetail(id: string) {
+  return useQuery({
+    queryKey: queryKeys.transaksi.detail(id),
+    queryFn: async (): Promise<PendaftaranRecord | null> => {
+      if (!id) return null;
+      const res = await transaksiApi.getById(id);
+      return res ? mapPendaftaranQueueItem(res) : null;
+    },
+    enabled: Boolean(id),
+  });
 }
 
 export function useVerifikatorQueue() {

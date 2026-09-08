@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { dokumenApi } from "@/lib/api";
 import type { PendaftaranRecord } from "@/types";
 
 interface WizardReadonlyModalProps {
@@ -264,31 +265,36 @@ export const WizardReadonlyModal: React.FC<WizardReadonlyModalProps> = ({
                       Bagian 3: Dokumen Pendukung Terunggah
                     </h6>
                     <div className="row g-3">
-                      {pendaftaran.dokumen.map((doc) => (
-                        <div className="col-md-6" key={doc.persyaratanId}>
-                          <label className="form-label">{doc.namaPersyaratan}</label>
-                          <div className="input-group">
-                            <input
-                              type="text"
-                              className="form-control"
-                              value={doc.fileName || "Berkas Tersimpan"}
-                              disabled
-                            />
-                            <button
-                              type="button"
-                              className="btn btn-outline-secondary"
-                              onClick={() =>
-                                onPreviewFile?.(
-                                  doc.fileName || doc.namaPersyaratan,
-                                  doc.fileUrl || (doc.id ? `/api/dokumen/${doc.id}/view` : undefined)
-                                )
-                              }
-                            >
-                              <i className="bi bi-eye"></i> Lihat File
-                            </button>
+                      {pendaftaran.dokumen.map((doc) => {
+                        const docId = doc.dokumenId || doc.id;
+                        return (
+                          <div className="col-md-6" key={doc.persyaratanId}>
+                            <label className="form-label text-muted small fw-semibold">
+                              {doc.namaPersyaratan}
+                            </label>
+                            <div className="input-group">
+                              <input
+                                type="text"
+                                className="form-control"
+                                value={doc.fileName || "Berkas Tersimpan"}
+                                disabled
+                              />
+                              <button
+                                type="button"
+                                className="btn btn-outline-secondary"
+                                onClick={() =>
+                                  onPreviewFile?.(
+                                    doc.fileName || doc.namaPersyaratan,
+                                    doc.fileUrl || (docId ? dokumenApi.getViewUrl(docId) : undefined)
+                                  )
+                                }
+                              >
+                                <i className="bi bi-eye"></i> Lihat File
+                              </button>
+                            </div>
                           </div>
-                        </div>
-                      ))}
+                        );
+                      })}
                     </div>
                   </div>
                 )}

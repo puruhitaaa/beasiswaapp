@@ -3,11 +3,13 @@ import { useForm } from "@tanstack/react-form";
 import { toast } from "sonner";
 import { z } from "zod";
 import { appStore, useCurrentUser } from "@/lib/store";
+import { dokumenApi } from "@/lib/api";
 import {
   useSaveStep1Mutation,
   useSaveStep2Mutation,
   useSaveStep3Mutation,
   useSubmitApplicationMutation,
+  mergeWithDefaultDocuments,
 } from "@/hooks/use-transaksi-queries";
 import { useUploadDokumenMutation } from "@/hooks/use-dokumen-mutations";
 import type { DokumenUploadItem, PendaftaranRecord, BiodataData, PendidikanData } from "@/types";
@@ -70,44 +72,15 @@ export const WizardModal: React.FC<WizardModalProps> = ({
   const uploadDokumenMutation = useUploadDokumenMutation();
 
   // Form State Step 3 (Documents)
-  const [documents, setDocuments] = useState<DokumenUploadItem[]>(
-    pendaftaran.dokumen.length > 0
-      ? pendaftaran.dokumen
-      : [
-          {
-            persyaratanId: "req-ktp",
-            namaPersyaratan: "Upload KTP",
-            fileName: "",
-            fileSize: "",
-            mimeType: "image/jpeg",
-            format: "JPG",
-          },
-          {
-            persyaratanId: "req-kk",
-            namaPersyaratan: "Upload Kartu Keluarga (KK)",
-            fileName: "",
-            fileSize: "",
-            mimeType: "application/pdf",
-            format: "PDF",
-          },
-          {
-            persyaratanId: "req-ijazah",
-            namaPersyaratan: "Upload Ijazah Terakhir",
-            fileName: "",
-            fileSize: "",
-            mimeType: "application/pdf",
-            format: "PDF",
-          },
-          {
-            persyaratanId: "req-rekom",
-            namaPersyaratan: "Upload Surat Rekomendasi / Keterangan",
-            fileName: "",
-            fileSize: "",
-            mimeType: "application/pdf",
-            format: "PDF",
-          },
-        ]
+  const [documents, setDocuments] = useState<DokumenUploadItem[]>(() =>
+    mergeWithDefaultDocuments(pendaftaran.dokumen)
   );
+
+  useEffect(() => {
+    if (pendaftaran.dokumen && pendaftaran.dokumen.length > 0) {
+      setDocuments(mergeWithDefaultDocuments(pendaftaran.dokumen));
+    }
+  }, [pendaftaran.dokumen]);
 
   const currentUser = useCurrentUser();
 
@@ -293,15 +266,20 @@ export const WizardModal: React.FC<WizardModalProps> = ({
         file,
       });
 
+      const docId = uploadRes.dokumen?.id;
+      const fileUrl = docId ? dokumenApi.getViewUrl(docId) : undefined;
+
       const updated = documents.map((doc) => {
         if (doc.persyaratanId === persyaratanId) {
           return {
             ...doc,
-            id: uploadRes.dokumen?.id || doc.id,
+            id: docId || doc.id,
+            dokumenId: docId || doc.id,
             fileName: file.name,
             fileSize: `${(file.size / 1024).toFixed(0)} KB`,
             mimeType: file.type,
             format: file.name.split(".").pop()?.toUpperCase() || "PDF",
+            fileUrl,
             isSesuai: true,
             isRejected: false,
             catatanRevisi: undefined,
@@ -312,7 +290,10 @@ export const WizardModal: React.FC<WizardModalProps> = ({
 
       setDocuments(updated);
       appStore.saveStep3(pendaftaran.id, updated);
-      toast.success(`Berkas ${file.name} berhasil diunggah ke server!`);
+      if (pendaftaran.id) {
+        await saveStep3Mutation.mutateAsync({ id: pendaftaran.id, dokumen: updated });
+      }
+      toast.success(`Berkas ${file.name} berhasil diunggah dan tersimpan!`);
     } catch (err: any) {
       toast.error(err.message || "Gagal mengunggah berkas ke server.");
       e.target.value = "";
@@ -949,8 +930,24 @@ export const WizardModal: React.FC<WizardModalProps> = ({
                                   onChange={(e) => handleFileUpload(doc.persyaratanId, e)}
                                 />
                                 {doc.fileName && (
-                                  <div className="form-text">
-                                    File tersimpan: <span className="fw-semibold">{doc.fileName}</span> ({doc.fileSize})
+                                  <div className="form-text d-flex align-items-center justify-content-between mt-1">
+                                    <span className="text-success">
+                                      <i className="bi bi-check-circle-fill me-1"></i>
+                                      File tersimpan: <span className="fw-semibold">{doc.fileName}</span> {doc.fileSize ? `(${doc.fileSize})` : ""}
+                                    </span>
+                                    {(doc.fileUrl || doc.id || doc.dokumenId) && (
+                                      <button
+                                        type="button"
+                                        className="btn btn-sm btn-link p-0 text-primary text-decoration-none"
+                                        onClick={() => {
+                                          const id = doc.dokumenId || doc.id;
+                                          const url = doc.fileUrl || (id ? dokumenApi.getViewUrl(id) : undefined);
+                                          if (url) window.open(url, "_blank");
+                                        }}
+                                      >
+                                        <i className="bi bi-eye me-1"></i>Pratinjau
+                                      </button>
+                                    )}
                                   </div>
                                 )}
                                 {doc.catatanRevisi && (

@@ -20,6 +20,7 @@ model Pendaftaran {
   submittedAt          DateTime?
   biodata              BiodataPendaftar?
   pendidikan           RiwayatPendidikanPekerjaan?
+  dokumen              DokumenPendaftaran[]
   verifikasi           VerifikasiAdministrasi?
   wawancara            PenilaianWawancara?
   createdAt            DateTime                     @default(now())
@@ -99,4 +100,27 @@ model PenilaianWawancara {
   updatedAt       DateTime    @updatedAt
 
   @@map("penilaian_wawancara")
+}
+
+model DokumenPendaftaran {
+  id              String      @id @default(cuid())
+  pendaftaranId   String
+  pendaftaran     Pendaftaran @relation(fields: [pendaftaranId], references: [id], onDelete: Cascade)
+  persyaratanId   String      @db.VarChar(64)
+  namaPersyaratan String?     @db.VarChar(255)
+  dokumenId       String?     @db.VarChar(64)
+  fileName        String      @db.VarChar(255)
+  fileSize        String?     @db.VarChar(32)
+  mimeType        String?     @db.VarChar(64)
+  format          String?     @db.VarChar(16)
+  fileUrl         String?     @db.VarChar(512)
+  isSesuai        Boolean     @default(true)
+  isRejected      Boolean     @default(false)
+  catatanRevisi   String?     @db.Text
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+
+  @@unique([pendaftaranId, persyaratanId])
+  @@index([pendaftaranId])
+  @@map("dokumen_pendaftaran")
 }
