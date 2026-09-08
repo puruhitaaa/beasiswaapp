@@ -52,6 +52,7 @@ export function useCreateBeasiswaMutation() {
         return await masterApi.createBeasiswa(payload);
       } catch {
         return appStore.addBeasiswa({
+          kodeBeasiswa: payload.kodeBeasiswa || `BSW-${Date.now().toString().slice(-4)}`,
           namaPelatihan: payload.namaPelatihan,
           deskripsi: payload.deskripsi,
           kuota: payload.kuota,

@@ -2,6 +2,7 @@ import React from "react";
 import { Link, useNavigate } from "@tanstack/react-router";
 import { appStore } from "@/lib/store";
 import { authApi } from "@/lib/api";
+import { useMyMenusQuery } from "@/hooks/use-auth-queries";
 
 export type InternalRole = "verifikator" | "interviewer" | "admin";
 
@@ -11,12 +12,20 @@ interface SidebarInternalProps {
   onTabSelect?: (tabId: string) => void;
 }
 
+const ADMIN_TAB_MAP: Record<string, string> = {
+  "Dashboard": "dashboard",
+  "Hasil Seleksi": "hasil",
+  "Data Master": "master",
+  "Setting System": "setting",
+};
+
 export const SidebarInternal: React.FC<SidebarInternalProps> = ({
   role,
   activeTab = "dashboard",
   onTabSelect,
 }) => {
   const navigate = useNavigate();
+  const { data: dynamicMenus } = useMyMenusQuery();
 
   const handleLogout = () => {
     authApi.logout();
@@ -60,60 +69,95 @@ export const SidebarInternal: React.FC<SidebarInternalProps> = ({
 
       {/* Nav Items */}
       <ul className="nav nav-pills flex-column mb-auto">
-        {role === "verifikator" && (
-          <li className="nav-item">
-            <Link to="/verifikator" className="nav-link active">
-              <i className="bi bi-file-earmark-check me-2"></i>Verifikasi Seleksi Administrasi
-            </Link>
-          </li>
-        )}
+        {dynamicMenus && dynamicMenus.length > 0 ? (
+          dynamicMenus.map((m) => {
+            if (role === "admin" && m.route === "/admin") {
+              const tabId = ADMIN_TAB_MAP[m.name] || m.name.toLowerCase().replace(/\s+/g, "");
+              const isActive = activeTab === tabId;
+              return (
+                <li key={m.id} className="nav-item">
+                  <button
+                    type="button"
+                    className={`nav-link text-start w-100 ${isActive ? "active" : ""}`}
+                    onClick={() => onTabSelect?.(tabId)}
+                  >
+                    <i className={`bi ${m.icon || "bi-grid"} me-2`}></i>
+                    {m.name}
+                  </button>
+                </li>
+              );
+            }
 
-        {role === "interviewer" && (
-          <li className="nav-item">
-            <Link to="/wawancara" className="nav-link active">
-              <i className="bi bi-chat-square-text me-2"></i>Proses Wawancara
-            </Link>
-          </li>
-        )}
-
-        {role === "admin" && (
+            return (
+              <li key={m.id} className="nav-item">
+                <Link
+                  to={m.route}
+                  className={`nav-link ${m.route.includes(role) ? "active" : ""}`}
+                >
+                  <i className={`bi ${m.icon || "bi-grid"} me-2`}></i>
+                  {m.name}
+                </Link>
+              </li>
+            );
+          })
+        ) : (
           <>
-            <li className="nav-item">
-              <button
-                type="button"
-                className={`nav-link text-start w-100 ${activeTab === "dashboard" ? "active" : ""}`}
-                onClick={() => onTabSelect?.("dashboard")}
-              >
-                <i className="bi bi-speedometer2 me-2"></i>Dashboard
-              </button>
-            </li>
-            <li className="nav-item">
-              <button
-                type="button"
-                className={`nav-link text-start w-100 ${activeTab === "hasil" ? "active" : ""}`}
-                onClick={() => onTabSelect?.("hasil")}
-              >
-                <i className="bi bi-file-earmark-spreadsheet me-2"></i>Hasil Seleksi
-              </button>
-            </li>
-            <li className="nav-item">
-              <button
-                type="button"
-                className={`nav-link text-start w-100 ${activeTab === "master" ? "active" : ""}`}
-                onClick={() => onTabSelect?.("master")}
-              >
-                <i className="bi bi-database me-2"></i>Data Master
-              </button>
-            </li>
-            <li className="nav-item">
-              <button
-                type="button"
-                className={`nav-link text-start w-100 ${activeTab === "setting" ? "active" : ""}`}
-                onClick={() => onTabSelect?.("setting")}
-              >
-                <i className="bi bi-sliders me-2"></i>Setting System
-              </button>
-            </li>
+            {role === "verifikator" && (
+              <li className="nav-item">
+                <Link to="/verifikator" className="nav-link active">
+                  <i className="bi bi-file-earmark-check me-2"></i>Verifikasi Seleksi Administrasi
+                </Link>
+              </li>
+            )}
+
+            {role === "interviewer" && (
+              <li className="nav-item">
+                <Link to="/wawancara" className="nav-link active">
+                  <i className="bi bi-chat-square-text me-2"></i>Proses Wawancara
+                </Link>
+              </li>
+            )}
+
+            {role === "admin" && (
+              <>
+                <li className="nav-item">
+                  <button
+                    type="button"
+                    className={`nav-link text-start w-100 ${activeTab === "dashboard" ? "active" : ""}`}
+                    onClick={() => onTabSelect?.("dashboard")}
+                  >
+                    <i className="bi bi-speedometer2 me-2"></i>Dashboard
+                  </button>
+                </li>
+                <li className="nav-item">
+                  <button
+                    type="button"
+                    className={`nav-link text-start w-100 ${activeTab === "hasil" ? "active" : ""}`}
+                    onClick={() => onTabSelect?.("hasil")}
+                  >
+                    <i className="bi bi-file-earmark-spreadsheet me-2"></i>Hasil Seleksi
+                  </button>
+                </li>
+                <li className="nav-item">
+                  <button
+                    type="button"
+                    className={`nav-link text-start w-100 ${activeTab === "master" ? "active" : ""}`}
+                    onClick={() => onTabSelect?.("master")}
+                  >
+                    <i className="bi bi-database me-2"></i>Data Master
+                  </button>
+                </li>
+                <li className="nav-item">
+                  <button
+                    type="button"
+                    className={`nav-link text-start w-100 ${activeTab === "setting" ? "active" : ""}`}
+                    onClick={() => onTabSelect?.("setting")}
+                  >
+                    <i className="bi bi-sliders me-2"></i>Setting System
+                  </button>
+                </li>
+              </>
+            )}
           </>
         )}
 

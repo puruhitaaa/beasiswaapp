@@ -2,6 +2,8 @@ import "dotenv/config";
 import {
   StatusPendaftaran,
   StatusWawancara,
+  step1BiodataSchema,
+  step2PendidikanSchema,
 } from "@beasiswaapp/contracts";
 import fastifyCors from "@fastify/cors";
 import Fastify from "fastify";
@@ -189,7 +191,15 @@ fastify.put("/api/transaksi/pendaftaran/:id/step/1", async (request, reply) => {
     });
   }
 
-  const updated = await repository.upsertBiodata(id, request.body);
+  const validation = step1BiodataSchema.safeParse(request.body);
+  if (!validation.success) {
+    return reply.status(400).send({
+      error: "Validasi data diri gagal.",
+      details: validation.error.flatten(),
+    });
+  }
+
+  const updated = await repository.upsertBiodata(id, validation.data);
   return updated;
 });
 
@@ -214,7 +224,15 @@ fastify.put("/api/transaksi/pendaftaran/:id/step/2", async (request, reply) => {
     });
   }
 
-  const updated = await repository.upsertPendidikan(id, request.body);
+  const validation = step2PendidikanSchema.safeParse(request.body);
+  if (!validation.success) {
+    return reply.status(400).send({
+      error: "Validasi data pendidikan gagal.",
+      details: validation.error.flatten(),
+    });
+  }
+
+  const updated = await repository.upsertPendidikan(id, validation.data);
   return updated;
 });
 

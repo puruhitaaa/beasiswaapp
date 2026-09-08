@@ -30,7 +30,7 @@ interface AppState {
     id: string;
     name: string;
     email: string;
-    role: "applicant" | "verifikator" | "interviewer" | "admin";
+    role: "applicant" | "verifikator" | "interviewer" | "admin" | "superadmin";
     nik?: string;
   } | null;
   programs: BeasiswaProgram[];
@@ -481,6 +481,28 @@ class AppStore {
         (a) => a.status === "TIDAK_LULUS_WAWANCARA"
       ).length,
     };
+  }
+
+  getStatistics() {
+    return this.getAdminStatistics();
+  }
+
+  submitWawancaraPenilaian(
+    applicationId: string,
+    skorKomunikasi: number,
+    skorTeknis: number,
+    skorKomitmen: number,
+    statusHasil: "Lulus" | "Tidak Lulus",
+    catatanEvaluasi: string
+  ) {
+    return this.submitWawancaraScoring(
+      applicationId,
+      skorKomunikasi,
+      skorTeknis,
+      skorKomitmen,
+      statusHasil,
+      catatanEvaluasi
+    );
   }
 
   // Master Beasiswa CRUD

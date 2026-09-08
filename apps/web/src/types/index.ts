@@ -35,6 +35,7 @@ export interface BiodataData {
   kecamatan: string;
   kelurahan: string;
   noHp: string;
+  noWa?: string;
   email: string;
 }
 

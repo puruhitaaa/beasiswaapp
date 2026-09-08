@@ -2,6 +2,12 @@ import React, { useState, useEffect } from "react";
 import { useForm } from "@tanstack/react-form";
 import { toast } from "sonner";
 import { z } from "zod";
+import {
+  step1BiodataSchema,
+  step2PendidikanSchema,
+  type Step1BiodataInput,
+  type Step2PendidikanInput,
+} from "@beasiswaapp/contracts";
 import { appStore, useCurrentUser } from "@/lib/store";
 import { dokumenApi } from "@/lib/api";
 import {
@@ -21,33 +27,9 @@ interface WizardModalProps {
   onSubmitted?: () => void;
 }
 
-const step1Schema = z.object({
-  nik: z.string().regex(/^\d{16}$/, "NIK harus 16 digit angka."),
-  namaLengkap: z.string().min(3, "Nama lengkap wajib diisi minimal 3 karakter."),
-  tempatLahir: z.string().min(1, "Tempat lahir wajib diisi."),
-  tglLahir: z.string().min(1, "Tanggal lahir wajib diisi."),
-  jenisKelamin: z.enum(["L", "P", ""]).refine((val): val is "L" | "P" => val === "L" || val === "P", {
-    message: "Jenis kelamin wajib dipilih.",
-  }),
-  alamat: z.string().min(10, "Alamat domisili minimal 10 karakter."),
-  provinsi: z.string().min(1, "Provinsi wajib dipilih."),
-  kabupatenKota: z.string().min(1, "Kabupaten/Kota wajib dipilih."),
-  kecamatan: z.string().min(1, "Kecamatan wajib dipilih."),
-  kelurahan: z.string().min(1, "Kelurahan wajib dipilih."),
-  noHp: z.string().min(1, "Nomor HP wajib diisi."),
-  email: z.string().email("Format email tidak valid."),
-});
-
-const step2Schema = z.object({
-  pendidikanTerakhir: z.string().min(1, "Jenjang pendidikan wajib dipilih."),
-  namaInstansi: z.string().min(1, "Nama instansi wajib diisi."),
-  jurusan: z.string().min(1, "Jurusan wajib diisi."),
-  pekerjaanSaatIni: z.string().min(1, "Pekerjaan saat ini wajib diisi."),
-});
-
 const wizardSchema = z.object({
-  biodata: step1Schema,
-  pendidikan: step2Schema,
+  biodata: step1BiodataSchema,
+  pendidikan: step2PendidikanSchema,
   pernyataanSah: z.boolean().refine((val) => val === true, {
     message: "Anda wajib mencentang pernyataan keabsahan data.",
   }),
@@ -109,13 +91,14 @@ export const WizardModal: React.FC<WizardModalProps> = ({
         namaLengkap: resolvedNama,
         tempatLahir: pendaftaran.biodata?.tempatLahir || "",
         tglLahir: pendaftaran.biodata?.tglLahir || "",
-        jenisKelamin: (pendaftaran.biodata?.jenisKelamin || "") as "L" | "P" | "",
+        jenisKelamin: (pendaftaran.biodata?.jenisKelamin === "P" ? "P" : "L") as "L" | "P",
         alamat: pendaftaran.biodata?.alamat || "",
         provinsi: pendaftaran.biodata?.provinsi || "",
         kabupatenKota: pendaftaran.biodata?.kabupatenKota || "",
         kecamatan: pendaftaran.biodata?.kecamatan || "",
         kelurahan: pendaftaran.biodata?.kelurahan || "",
         noHp: pendaftaran.biodata?.noHp || "",
+        noWa: pendaftaran.biodata?.noWa || "",
         email: resolvedEmail,
       },
       pendidikan: {
@@ -127,7 +110,13 @@ export const WizardModal: React.FC<WizardModalProps> = ({
       pernyataanSah: false,
     },
     validators: {
-      onSubmit: wizardSchema,
+      onSubmit: ({ value }) => {
+        const parsed = wizardSchema.safeParse(value);
+        if (!parsed.success) {
+          return parsed.error.issues[0]?.message || "Validasi formulir pendaftaran belum lengkap.";
+        }
+        return undefined;
+      },
     },
     onSubmit: async ({ value }) => {
       try {
@@ -156,7 +145,7 @@ export const WizardModal: React.FC<WizardModalProps> = ({
   if (!isOpen) return null;
 
   const validateStep1 = () => {
-    const parsed = step1Schema.safeParse(form.getFieldValue("biodata"));
+    const parsed = step1BiodataSchema.safeParse(form.getFieldValue("biodata"));
     if (!parsed.success) {
       toast.error(parsed.error.issues[0]?.message || "Periksa kembali isian Bagian 1.");
       return false;
@@ -165,7 +154,7 @@ export const WizardModal: React.FC<WizardModalProps> = ({
   };
 
   const validateStep2 = () => {
-    const parsed = step2Schema.safeParse(form.getFieldValue("pendidikan"));
+    const parsed = step2PendidikanSchema.safeParse(form.getFieldValue("pendidikan"));
     if (!parsed.success) {
       toast.error(parsed.error.issues[0]?.message || "Periksa kembali isian Bagian 2.");
       return false;
@@ -175,7 +164,7 @@ export const WizardModal: React.FC<WizardModalProps> = ({
 
   const handleNext = async () => {
     if (currentStep === 1) {
-      const parsed = step1Schema.safeParse(form.getFieldValue("biodata"));
+      const parsed = step1BiodataSchema.safeParse(form.getFieldValue("biodata"));
       if (!parsed.success) {
         toast.error(parsed.error.issues[0]?.message || "Periksa kembali isian Bagian 1.");
         return;
@@ -188,7 +177,7 @@ export const WizardModal: React.FC<WizardModalProps> = ({
         toast.error(err.message || "Gagal menyimpan biodata.");
       }
     } else if (currentStep === 2) {
-      const parsed = step2Schema.safeParse(form.getFieldValue("pendidikan"));
+      const parsed = step2PendidikanSchema.safeParse(form.getFieldValue("pendidikan"));
       if (!parsed.success) {
         toast.error(parsed.error.issues[0]?.message || "Periksa kembali isian Bagian 2.");
         return;
@@ -510,7 +499,7 @@ export const WizardModal: React.FC<WizardModalProps> = ({
                                 className={`form-select ${field.state.meta.errors.length ? "is-invalid" : ""}`}
                                 value={field.state.value}
                                 onBlur={field.handleBlur}
-                                onChange={(e) => field.handleChange(e.target.value as "L" | "P" | "")}
+                                onChange={(e) => field.handleChange((e.target.value || "L") as "L" | "P")}
                               >
                                 <option value="">Pilih Jenis Kelamin...</option>
                                 <option value="L">Laki-laki</option>

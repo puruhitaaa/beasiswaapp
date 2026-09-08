@@ -1,5 +1,12 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { authApi, getStoredToken, setStoredSession, type ApiUser } from "@/lib/api";
+import {
+  authApi,
+  rbacApi,
+  getStoredToken,
+  setStoredSession,
+  type ApiUser,
+  type UserMenuItem,
+} from "@/lib/api";
 import { appStore } from "@/lib/store";
 import { queryKeys } from "@/lib/query-client";
 import type { MasterMenu, MasterRole, UserInternal } from "@/types";
@@ -214,9 +221,10 @@ export function useCreateInternalUserMutation() {
       } catch {
         return appStore.addInternalUser({
           name: data.name,
+          username: data.email.split("@")[0] || data.name.toLowerCase().replace(/\s+/g, ""),
           email: data.email,
           role: data.role,
-          status: "Aktif",
+          status: "Active",
         });
       }
     },
@@ -245,3 +253,23 @@ export function useUpdateRolePermissionsMutation() {
     },
   });
 }
+
+export function useMyMenusQuery() {
+  return useQuery({
+    queryKey: ["auth", "my-menus"],
+    queryFn: async (): Promise<UserMenuItem[]> => {
+      try {
+        const token = getStoredToken();
+        if (!token) return [];
+        const menus = await rbacApi.getMyMenus();
+        if (Array.isArray(menus) && menus.length > 0) return menus;
+      } catch {
+        // fallback
+      }
+      return [];
+    },
+    enabled: typeof window !== "undefined" && !!getStoredToken(),
+    staleTime: 5 * 60 * 1000,
+  });
+}
+

@@ -68,4 +68,24 @@ describe("Security, File Sniffing & Antivirus Verification", () => {
     const result = await scanner.scanBuffer(cleanPayload);
     expect(result.isInfected).toBe(false);
   });
+
+  it("Stream scanner catches EICAR malware test chunks", async () => {
+    const streamSession = scanner.createStreamScanner();
+    streamSession.writeChunk(Buffer.from("Pre-padding content "));
+    streamSession.writeChunk(
+      Buffer.from("X5O!P%@AP[4\\PZX54(P^)7CC)7}$EICAR-STANDARD-ANTIVIRUS-TEST-FILE!$H+H*")
+    );
+    streamSession.writeChunk(Buffer.from(" Post-padding content"));
+    const result = await streamSession.finish();
+    expect(result.isInfected).toBe(true);
+    expect(result.signature).toBe("Eicar-Signature.TestFile");
+  });
+
+  it("Stream scanner passes clean file chunks", async () => {
+    const streamSession = scanner.createStreamScanner();
+    streamSession.writeChunk(Buffer.from("First clean document chunk... "));
+    streamSession.writeChunk(Buffer.from("Second clean document chunk..."));
+    const result = await streamSession.finish();
+    expect(result.isInfected).toBe(false);
+  });
 });

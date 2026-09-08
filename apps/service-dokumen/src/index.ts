@@ -64,68 +64,75 @@ fastify.post("/api/dokumen/upload", async (request: FastifyRequest, reply: Fasti
 
   const query = (request.query || {}) as Record<string, string>;
   const fields: Record<string, string> = { ...query };
-  let fileBuffer: Buffer | null = null;
-  let filename = "";
-  let mimetype = "";
+  let uploadedFilePart: any = null;
 
   for await (const part of request.parts()) {
     if (part.type === "file") {
-      filename = part.filename;
-      mimetype = part.mimetype;
-      fileBuffer = await part.toBuffer();
+      uploadedFilePart = part;
+      break;
     } else {
       fields[part.fieldname] = String(part.value ?? "");
     }
   }
 
-  if (!fileBuffer || !filename) {
+  if (!uploadedFilePart) {
     return reply.status(400).send({ error: "Berkas tidak ditemukan." });
   }
 
+  const filename = uploadedFilePart.filename;
+  const mimetype = uploadedFilePart.mimetype;
   const pendaftaranId = fields.pendaftaranId || "pending";
   const kodePermohonan = fields.kodePermohonan || "DRAFT";
   const persyaratanId = fields.persyaratanId;
 
   if (!persyaratanId) {
+    uploadedFilePart.file.resume();
     return reply.status(400).send({ error: "persyaratanId wajib disertakan." });
   }
-
-  const buffer = fileBuffer;
-  const fileSizeBytes = buffer.length;
 
   // Strict SVG rejection check
   const originalName = filename.toLowerCase();
   if (originalName.endsWith(".svg") || mimetype === "image/svg+xml") {
+    uploadedFilePart.file.resume();
     return reply.status(400).send({
       error: "Berkas SVG dilarang secara mutlak karena alasan keamanan siber (Anti-XSS).",
     });
   }
 
-  // 4 KB stream peek for binary magic bytes validation
-  const headerPeek = buffer.subarray(0, 4096);
-  const detectedType = await fileTypeFromBuffer(headerPeek);
+  // Read initial chunks up to 4096 bytes for magic bytes sniffing without whole-file buffering
+  const initialChunks: Buffer[] = [];
+  let peekBytes = 0;
+  const fileStream = uploadedFilePart.file;
+  const asyncIterator = fileStream[Symbol.asyncIterator]();
 
+  let chunkResult = await asyncIterator.next();
+  while (!chunkResult.done) {
+    const chunk = Buffer.isBuffer(chunkResult.value)
+      ? chunkResult.value
+      : Buffer.from(chunkResult.value);
+    initialChunks.push(chunk);
+    peekBytes += chunk.length;
+    if (peekBytes >= 4096) break;
+    chunkResult = await asyncIterator.next();
+  }
+
+  const peekBuffer = Buffer.concat(initialChunks);
+  if (peekBuffer.length === 0) {
+    return reply.status(400).send({ error: "Berkas kosong." });
+  }
+
+  const detectedType = await fileTypeFromBuffer(peekBuffer.subarray(0, 4096));
   const allowedMimeTypes = ["application/pdf", "image/jpeg", "image/png"];
   if (!detectedType || !allowedMimeTypes.includes(detectedType.mime)) {
+    fileStream.resume();
     return reply.status(400).send({
       error: "Tipe berkas tidak valid. Hanya dokumen PDF, JPG, dan PNG yang diizinkan.",
     });
   }
 
-  const magicBytesHex = headerPeek.subarray(0, 8).toString("hex").toUpperCase();
+  const magicBytesHex = peekBuffer.subarray(0, 8).toString("hex").toUpperCase();
 
-  // Antivirus Scan
-  const scanResult = await scanner.scanBuffer(buffer);
-  if (scanResult.isInfected) {
-    return reply.status(422).send({
-      error: `Berkas ditolak. Terdeteksi ancaman malware: ${scanResult.signature}`,
-    });
-  }
-
-  // Calculate SHA-256 Hash
-  const sha256Hash = crypto.createHash("sha256").update(buffer).digest("hex");
-
-  // Save to isolated storage path: /storage/permohonan/{kodePermohonan}/{persyaratanId}_{uuid}.{ext}
+  // Prepare destination and streaming scanner
   const fileUuid = crypto.randomUUID();
   const targetDir = path.join(STORAGE_ROOT, kodePermohonan);
   if (!fs.existsSync(targetDir)) {
@@ -134,15 +141,77 @@ fastify.post("/api/dokumen/upload", async (request: FastifyRequest, reply: Fasti
 
   const targetFilename = `${persyaratanId}_${fileUuid}.${detectedType.ext}`;
   const targetFilePath = path.join(targetDir, targetFilename);
-  await fs.promises.writeFile(targetFilePath, buffer);
+  const writeStream = fs.createWriteStream(targetFilePath);
+  const sha256 = crypto.createHash("sha256");
+  const streamScanner = scanner.createStreamScanner();
 
-  // Determine scan status enum
-  let clamavScanStatus: string = ScanStatus.CLEAN;
-  if (scanResult.skippedMock) {
-    clamavScanStatus = ScanStatus.SKIPPED_MOCK;
-  } else if (scanResult.error) {
-    clamavScanStatus = ScanStatus.SCAN_FAILED;
+  let fileSizeBytes = 0;
+
+  // Stream write initial peek chunks
+  for (const chunk of initialChunks) {
+    fileSizeBytes += chunk.length;
+    sha256.update(chunk);
+    writeStream.write(chunk);
+    streamScanner.writeChunk(chunk);
   }
+
+  // Stream remaining chunks directly to disk and ClamAV
+  let streamError: Error | null = null;
+  try {
+    let next = await asyncIterator.next();
+    while (!next.done) {
+      const chunk = Buffer.isBuffer(next.value) ? next.value : Buffer.from(next.value);
+      fileSizeBytes += chunk.length;
+      sha256.update(chunk);
+      writeStream.write(chunk);
+      streamScanner.writeChunk(chunk);
+      next = await asyncIterator.next();
+    }
+  } catch (err: any) {
+    streamError = err;
+  }
+
+  await new Promise<void>((resolve, reject) => {
+    writeStream.end(() => resolve());
+    writeStream.on("error", reject);
+  });
+
+  if (streamError) {
+    streamScanner.abort();
+    try {
+      await fs.promises.unlink(targetFilePath);
+    } catch {}
+    return reply.status(500).send({ error: "Gagal membaca aliran berkas." });
+  }
+
+  // Antivirus Scan Result
+  const scanResult = await streamScanner.finish();
+
+  if (scanResult.isInfected) {
+    try {
+      await fs.promises.unlink(targetFilePath);
+    } catch {}
+    return reply.status(422).send({
+      error: `Berkas ditolak. Terdeteksi ancaman malware: ${scanResult.signature}`,
+    });
+  }
+
+  // Fail-Closed policy: if scanner encountered an error in production mode, reject upload
+  if (scanResult.error && !scanResult.skippedMock) {
+    try {
+      await fs.promises.unlink(targetFilePath);
+    } catch {}
+    return reply.status(503).send({
+      error: `Layanan antivirus tidak dapat dihubungi atau pemindaian gagal: ${scanResult.error}. Unggahan dibatalkan demi keamanan data (kebijakan Fail-Closed).`,
+    });
+  }
+
+  const sha256Hash = sha256.digest("hex");
+  const clamavScanStatus = scanResult.skippedMock
+    ? ScanStatus.SKIPPED_MOCK
+    : scanResult.error
+      ? ScanStatus.SCAN_FAILED
+      : ScanStatus.CLEAN;
 
   // Record in repository (with transparent fallback)
   const created = await dokumenRepository.create({

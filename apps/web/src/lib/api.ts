@@ -10,7 +10,7 @@ export interface ApiUser {
   id: string;
   name: string;
   email: string;
-  role: "applicant" | "verifikator" | "interviewer" | "admin";
+  role: "applicant" | "verifikator" | "interviewer" | "admin" | "superadmin";
   nik?: string;
 }
 
@@ -367,3 +367,19 @@ export const dokumenApi = {
     return `${API_BASE_URL}/api/dokumen/${docId}/download${token ? `?token=${encodeURIComponent(token)}` : ""}`;
   },
 };
+
+// 5. RBAC API (Dynamic Menus & Role Info)
+export interface UserMenuItem {
+  id: string;
+  name: string;
+  route: string;
+  icon?: string;
+  orderIndex: number;
+}
+
+export const rbacApi = {
+  async getMyMenus(): Promise<UserMenuItem[]> {
+    return request<UserMenuItem[]>("/api/rbac/me/menus");
+  },
+};
+

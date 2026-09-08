@@ -7,6 +7,12 @@ export interface ScanResult {
   error?: string;
 }
 
+export interface StreamScanSession {
+  writeChunk(chunk: Buffer): void;
+  finish(): Promise<ScanResult>;
+  abort(): void;
+}
+
 const EICAR_TEST_STRING =
   "X5O!P%@AP[4\\PZX54(P^)7CC)7}$EICAR-STANDARD-ANTIVIRUS-TEST-FILE!$H+H*";
 
@@ -21,8 +27,148 @@ export class AntivirusScanner {
     this.port = Number(process.env.CLAMAV_PORT) || 3310;
   }
 
+  public isMock(): boolean {
+    return this.useMock;
+  }
+
   /**
-   * Scans a buffer for virus signatures
+   * Creates a streaming session for direct zero-buffer chunk piping to ClamAV (TCP zINSTREAM)
+   */
+  createStreamScanner(): StreamScanSession {
+    if (this.useMock) {
+      let isInf = false;
+      return {
+        writeChunk(chunk: Buffer) {
+          if (chunk.toString("utf-8").includes(EICAR_TEST_STRING)) {
+            isInf = true;
+          }
+        },
+        async finish(): Promise<ScanResult> {
+          if (isInf) {
+            return {
+              isInfected: true,
+              signature: "Eicar-Signature.TestFile",
+            };
+          }
+          return {
+            isInfected: false,
+            skippedMock: true,
+          };
+        },
+        abort() {},
+      };
+    }
+
+    // Production ClamAV TCP zINSTREAM protocol
+    const socket = new net.Socket();
+    let response = "";
+    let socketError: Error | null = null;
+    let connected = false;
+    const queuedChunks: Buffer[] = [];
+
+    socket.setTimeout(15000);
+
+    socket.connect(this.port, this.host, () => {
+      connected = true;
+      socket.write("zINSTREAM\0");
+      for (const chunk of queuedChunks) {
+        const sizeBuffer = Buffer.alloc(4);
+        sizeBuffer.writeUInt32BE(chunk.length, 0);
+        socket.write(sizeBuffer);
+        socket.write(chunk);
+      }
+      queuedChunks.length = 0;
+    });
+
+    socket.on("data", (data) => {
+      response += data.toString("utf-8");
+    });
+
+    socket.on("error", (err) => {
+      socketError = err;
+      socket.destroy();
+    });
+
+    socket.on("timeout", () => {
+      socketError = new Error("ClamAV socket timeout");
+      socket.destroy();
+    });
+
+    return {
+      writeChunk(chunk: Buffer) {
+        if (!connected) {
+          queuedChunks.push(chunk);
+        } else if (!socketError) {
+          const sizeBuffer = Buffer.alloc(4);
+          sizeBuffer.writeUInt32BE(chunk.length, 0);
+          socket.write(sizeBuffer);
+          socket.write(chunk);
+        }
+      },
+      abort() {
+        socket.destroy();
+      },
+      async finish(): Promise<ScanResult> {
+        return new Promise((resolve) => {
+          if (socketError) {
+            return resolve({
+              isInfected: false,
+              error: socketError.message,
+            });
+          }
+
+          const sendZeroAndListen = () => {
+            const zeroBuffer = Buffer.alloc(4, 0);
+            socket.write(zeroBuffer);
+
+            socket.once("end", () => {
+              socket.destroy();
+              if (response.includes("FOUND")) {
+                const match = response.match(/stream: (.+) FOUND/);
+                resolve({
+                  isInfected: true,
+                  signature: match ? match[1] : "Unknown.Malware",
+                });
+              } else if (response.includes("OK")) {
+                resolve({ isInfected: false });
+              } else {
+                resolve({
+                  isInfected: false,
+                  error: response || "Respon daemon ClamAV tidak dikenali",
+                });
+              }
+            });
+
+            socket.once("close", () => {
+              if (socketError) {
+                resolve({
+                  isInfected: false,
+                  error: socketError.message,
+                });
+              }
+            });
+          };
+
+          if (connected) {
+            sendZeroAndListen();
+          } else {
+            socket.once("connect", () => {
+              sendZeroAndListen();
+            });
+            socket.once("error", (err) => {
+              resolve({
+                isInfected: false,
+                error: `ClamAV connection error: ${err.message}`,
+              });
+            });
+          }
+        });
+      },
+    };
+  }
+
+  /**
+   * Scans a buffer for virus signatures (backwards-compatibility)
    */
   async scanBuffer(buffer: Buffer): Promise<ScanResult> {
     if (this.useMock) {
@@ -82,7 +228,6 @@ export class AntivirusScanner {
 
       socket.on("error", (err) => {
         socket.destroy();
-        // In fail-closed policy, if clamav cannot be reached, mark error
         resolve({
           isInfected: false,
           error: `ClamAV connection error: ${err.message}`,
