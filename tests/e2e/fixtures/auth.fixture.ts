@@ -66,7 +66,6 @@ export async function logoutUser(page: Page) {
   } catch {
     // ignore
   }
-  await updateLowerThird(page, { role: "PUBLIC / GUEST" });
 }
 
 export async function loginAsAdmin(page: Page) {

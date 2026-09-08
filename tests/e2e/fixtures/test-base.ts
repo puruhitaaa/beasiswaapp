@@ -3,98 +3,93 @@ import { test as baseTest, expect, Page, TestInfo } from "@playwright/test";
 export interface LowerThirdOptions {
   title?: string;
   role?: string;
-  status?: "RUNNING" | "PASSED" | "FAILED";
   step?: string;
 }
 
 export const ROLE_CONFIG: Record<
   string,
-  { label: string; badgeBg: string; textColor: string; icon: string; accentColor: string }
+  { label: string; bg: string; icon: string; accent: string }
 > = {
   ADMINISTRATOR: {
     label: "ADMINISTRATOR",
-    badgeBg: "linear-gradient(135deg, #7c3aed 0%, #6d28d9 100%)",
-    textColor: "#ffffff",
+    bg: "linear-gradient(135deg, #7c3aed 0%, #6d28d9 100%)",
     icon: "⚡",
-    accentColor: "#8b5cf6",
+    accent: "#8b5cf6",
   },
   VERIFIKATOR: {
     label: "VERIFIKATOR",
-    badgeBg: "linear-gradient(135deg, #d97706 0%, #b45309 100%)",
-    textColor: "#ffffff",
+    bg: "linear-gradient(135deg, #d97706 0%, #b45309 100%)",
     icon: "🛡️",
-    accentColor: "#f59e0b",
+    accent: "#f59e0b",
   },
   INTERVIEWER: {
     label: "INTERVIEWER",
-    badgeBg: "linear-gradient(135deg, #0284c7 0%, #0369a1 100%)",
-    textColor: "#ffffff",
+    bg: "linear-gradient(135deg, #0284c7 0%, #0369a1 100%)",
     icon: "🎤",
-    accentColor: "#38bdf8",
+    accent: "#38bdf8",
   },
   APPLICANT: {
     label: "APPLICANT",
-    badgeBg: "linear-gradient(135deg, #059669 0%, #047857 100%)",
-    textColor: "#ffffff",
+    bg: "linear-gradient(135deg, #059669 0%, #047857 100%)",
     icon: "👤",
-    accentColor: "#10b981",
+    accent: "#10b981",
   },
   "PUBLIC / GUEST": {
     label: "PUBLIC / GUEST",
-    badgeBg: "linear-gradient(135deg, #475569 0%, #334155 100%)",
-    textColor: "#ffffff",
+    bg: "linear-gradient(135deg, #475569 0%, #334155 100%)",
     icon: "🌐",
-    accentColor: "#94a3b8",
+    accent: "#94a3b8",
   },
 };
 
 /**
- * Infers appropriate initial role from test title or describe block.
+ * Returns the exact, deterministic user role for each test case.
  */
-export function inferRoleFromTest(testInfo: TestInfo): string {
-  const fullContext = `${testInfo.titlePath.join(" ")} ${testInfo.title}`.toLowerCase();
+export function getExactRoleForTest(testInfo: { file: string; title: string }): string {
+  const file = testInfo.file.replace(/\\/g, "/");
 
-  if (fullContext.includes("verifikator")) {
+  if (file.includes("01-applicant-portal")) {
+    if (testInfo.title.startsWith("1.1") || testInfo.title.startsWith("1.2")) {
+      return "PUBLIC / GUEST";
+    }
+    return "APPLICANT";
+  }
+
+  if (file.includes("02-verifikator-review")) {
     return "VERIFIKATOR";
   }
-  if (fullContext.includes("interviewer") || fullContext.includes("wawancara")) {
+
+  if (file.includes("03-revision-handling")) {
+    return "APPLICANT";
+  }
+
+  if (file.includes("04-interviewer-scoring")) {
     return "INTERVIEWER";
   }
-  if (
-    fullContext.includes("1.1 public") ||
-    fullContext.includes("1.2 public") ||
-    fullContext.includes("public landing")
-  ) {
-    return "PUBLIC / GUEST";
-  }
-  if (
-    fullContext.includes("relay") ||
-    fullContext.includes("handshake") ||
-    fullContext.includes("lifecycle")
-  ) {
+
+  if (file.includes("05-announcement-and-reregistration")) {
     return "APPLICANT";
   }
-  if (fullContext.includes("admin")) {
+
+  if (file.includes("06-admin-management")) {
     return "ADMINISTRATOR";
   }
-  if (
-    fullContext.includes("applicant") ||
-    fullContext.includes("peserta") ||
-    fullContext.includes("wizard") ||
-    fullContext.includes("revisi") ||
-    fullContext.includes("announcement")
-  ) {
+
+  if (file.includes("07-complete-lifecycle-handshake")) {
+    // Handshake lifecycle test starts at Stage 1 as Applicant
     return "APPLICANT";
   }
+
   return "APPLICANT";
 }
 
 /**
  * Generates client-side injection script for Lower Third overlay.
+ * Clean, high-contrast, without running/passed status indicators.
  */
 function createInjectionScript(initialState: LowerThirdOptions) {
   return `(() => {
-    window.__testLowerThirdState = ${JSON.stringify(initialState)};
+    window.__testLowerThirdState = window.__testLowerThirdState || ${JSON.stringify(initialState)};
 
     function getRoleConfig(roleName) {
       const upper = (roleName || "APPLICANT").toUpperCase();
@@ -118,27 +113,6 @@ function createInjectionScript(initialState: LowerThirdOptions) {
       let overlay = document.getElementById("playwright-lower-third-overlay");
       const state = window.__testLowerThirdState || {};
       const roleCfg = getRoleConfig(state.role);
-      const status = state.status || "RUNNING";
-
-      let statusBg = "rgba(59, 130, 246, 0.25)";
-      let statusColor = "#60a5fa";
-      let statusBorder = "1px solid rgba(59, 130, 246, 0.5)";
-      let statusIcon = "⏳ RUNNING";
-      let glow = "0 16px 40px rgba(0, 0, 0, 0.6)";
-
-      if (status === "PASSED") {
-        statusBg = "rgba(16, 185, 129, 0.3)";
-        statusColor = "#34d399";
-        statusBorder = "1px solid rgba(16, 185, 129, 0.8)";
-        statusIcon = "✅ PASSED";
-        glow = "0 0 25px rgba(16, 185, 129, 0.4), 0 16px 40px rgba(0, 0, 0, 0.7)";
-      } else if (status === "FAILED") {
-        statusBg = "rgba(239, 68, 68, 0.3)";
-        statusColor = "#f87171";
-        statusBorder = "1px solid rgba(239, 68, 68, 0.8)";
-        statusIcon = "❌ FAILED";
-        glow = "0 0 25px rgba(239, 68, 68, 0.4), 0 16px 40px rgba(0, 0, 0, 0.7)";
-      }
 
       if (!overlay) {
         overlay = document.createElement("div");
@@ -156,15 +130,15 @@ function createInjectionScript(initialState: LowerThirdOptions) {
         "pointer-events: none !important",
         "user-select: none !important",
         "font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif !important",
-        "background: rgba(15, 23, 42, 0.93) !important",
-        "border: 1px solid rgba(255, 255, 255, 0.15) !important",
+        "background: rgba(15, 23, 42, 0.94) !important",
+        "border: 1px solid rgba(255, 255, 255, 0.16) !important",
         "border-left: 5px solid " + roleCfg.accent + " !important",
         "border-radius: 12px !important",
-        "box-shadow: " + glow + " !important",
+        "box-shadow: 0 16px 36px rgba(0, 0, 0, 0.55) !important",
         "backdrop-filter: blur(14px) !important",
         "-webkit-backdrop-filter: blur(14px) !important",
         "padding: 12px 18px !important",
-        "transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important",
+        "transition: all 0.25s ease-in-out !important",
         "opacity: 1 !important",
         "display: block !important"
       ].join(";");
@@ -189,25 +163,11 @@ function createInjectionScript(initialState: LowerThirdOptions) {
               <span>\${roleCfg.icon}</span>
               <span>\${roleCfg.label}</span>
             </span>
-            <span style="
-              display: inline-flex;
-              align-items: center;
-              background: \${statusBg};
-              color: \${statusColor};
-              border: \${statusBorder};
-              font-size: 11px;
-              font-weight: 700;
-              padding: 2px 8px;
-              border-radius: 6px;
-              letter-spacing: 0.04em;
-            ">
-              \${statusIcon}
-            </span>
           </div>
           <span style="
             color: #94a3b8;
             font-size: 10px;
-            font-weight: 600;
+            font-weight: 700;
             letter-spacing: 0.08em;
             text-transform: uppercase;
           ">
@@ -227,7 +187,7 @@ function createInjectionScript(initialState: LowerThirdOptions) {
         </div>
         \${
           state.step
-            ? \`<div style="color: #cbd5e1; font-size: 11px; margin-top: 4px; display: flex; align-items: center; gap: 4px;">
+            ? \`<div style="color: #cbd5e1; font-size: 11.5px; margin-top: 5px; font-weight: 500; display: flex; align-items: center; gap: 4px;">
                 <span style="color: #38bdf8;">▸</span> \${state.step}
               </div>\`
             : ""
@@ -243,13 +203,26 @@ function createInjectionScript(initialState: LowerThirdOptions) {
       renderLowerThird();
     };
 
+    // Query authoritative state from Playwright Node process to prevent stale role reversions
+    if (typeof window.__getAuthoritativeLowerThirdState === "function") {
+      window.__getAuthoritativeLowerThirdState().then((authoritative) => {
+        if (authoritative) {
+          window.__testLowerThirdState = {
+            ...(window.__testLowerThirdState || {}),
+            ...authoritative,
+          };
+          renderLowerThird();
+        }
+      }).catch(() => null);
+    }
+
     if (document.readyState === "loading") {
       document.addEventListener("DOMContentLoaded", renderLowerThird);
     } else {
       renderLowerThird();
     }
 
-    // Keep active across subtle DOM tree reshuffles
+    // Keep active across DOM updates
     setInterval(() => {
       if (!document.getElementById("playwright-lower-third-overlay") && document.body) {
         renderLowerThird();
@@ -260,9 +233,17 @@ function createInjectionScript(initialState: LowerThirdOptions) {
 
 /**
  * Updates Lower Third overlay state on a Playwright page.
+ * Keeps Node runner state in sync to survive any page navigations/reloads.
  */
 export async function updateLowerThird(page: Page, options: LowerThirdOptions) {
   try {
+    const currentState = (page as any).__lowerThirdCurrentState;
+    if (currentState) {
+      if (options.role) currentState.role = options.role;
+      if (options.title) currentState.title = options.title;
+      if (options.step !== undefined) currentState.step = options.step;
+    }
+
     if (page.isClosed()) return;
     await page.evaluate((opts) => {
       if (typeof (window as any).__updateLowerThird === "function") {
@@ -273,42 +254,56 @@ export async function updateLowerThird(page: Page, options: LowerThirdOptions) {
           ...opts,
         };
       }
-    }, options);
+    }, options).catch(() => null);
   } catch {
     // ignore if page navigation is in progress
   }
 }
 
 /**
- * Extended Playwright test instance with automated Lower Third injection & status recording.
+ * Extended Playwright test instance with automated Lower Third injection & dynamic role tracking.
  */
 export const test = baseTest.extend<{
   lowerThird: void;
 }>({
   lowerThird: [
     async ({ page }, use, testInfo) => {
-      const initialRole = inferRoleFromTest(testInfo);
-      const initialState: LowerThirdOptions = {
+      const initialRole = getExactRoleForTest(testInfo);
+      const state: LowerThirdOptions = {
         title: testInfo.title,
         role: initialRole,
-        status: "RUNNING",
+        step: "",
       };
 
-      // Register init script to ensure lower third persists across all page navigations
-      await page.addInitScript(createInjectionScript(initialState));
+      (page as any).__lowerThirdCurrentState = state;
 
-      // Attempt immediate injection in case page is already loaded
-      await updateLowerThird(page, initialState);
+      // Expose authoritative state getter to browser so reloaded pages always get the live role
+      await page.exposeFunction("__getAuthoritativeLowerThirdState", () => state).catch(() => null);
+
+      // Register init script to ensure lower third persists across all page navigations
+      await page.addInitScript(createInjectionScript(state));
+
+      // Push latest state whenever a new document finishes loading
+      page.on("domcontentloaded", async () => {
+        try {
+          if (!page.isClosed()) {
+            await page.evaluate((s) => {
+              if (typeof (window as any).__updateLowerThird === "function") {
+                (window as any).__updateLowerThird(s);
+              }
+            }, state).catch(() => null);
+          }
+        } catch {}
+      });
+
+      // Attempt immediate injection
+      await updateLowerThird(page, state);
 
       // Execute actual test steps
       await use();
 
-      // Post-test: record the outcome directly into the visual lower third
-      const finalStatus: "PASSED" | "FAILED" = testInfo.status === "passed" ? "PASSED" : "FAILED";
-      await updateLowerThird(page, { status: finalStatus });
-
-      // Pause briefly so that Playwright's video recorder captures the final result badge
-      await page.waitForTimeout(1000).catch(() => null);
+      // Brief pause to allow the final screen to be cleanly recorded in the video
+      await page.waitForTimeout(500).catch(() => null);
     },
     { auto: true },
   ],

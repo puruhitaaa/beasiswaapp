@@ -7,6 +7,7 @@ import type {
 } from "@playwright/test/reporter";
 import fs from "node:fs";
 import path from "node:path";
+import { getExactRoleForTest } from "./test-base";
 
 export interface TestSummaryItem {
   id: string;
@@ -20,18 +21,12 @@ export interface TestSummaryItem {
   error?: string;
 }
 
-function inferRole(titlePath: string[]): string {
-  const full = titlePath.join(" ").toLowerCase();
-  if (full.includes("relay") || full.includes("handshake") || full.includes("lifecycle")) {
+function getReporterRole(test: TestCase): string {
+  const file = test.location.file.replace(/\\/g, "/");
+  if (file.includes("07-complete-lifecycle-handshake")) {
     return "MULTI-ROLE (RELAY)";
   }
-  if (full.includes("verifikator")) return "VERIFIKATOR";
-  if (full.includes("interviewer") || full.includes("wawancara")) return "INTERVIEWER";
-  if (full.includes("1.1 public") || full.includes("1.2 public") || full.includes("public landing")) {
-    return "PUBLIC / GUEST";
-  }
-  if (full.includes("admin")) return "ADMINISTRATOR";
-  return "APPLICANT";
+  return getExactRoleForTest({ file, title: test.title });
 }
 
 export default class ResultsReporter implements Reporter {
@@ -48,7 +43,7 @@ export default class ResultsReporter implements Reporter {
   onTestEnd(test: TestCase, result: TestResult) {
     const titlePath = test.titlePath();
     const suiteName = titlePath.length > 1 ? titlePath[1] : "General";
-    const role = inferRole(titlePath);
+    const role = getReporterRole(test);
 
     const videoAttachment = result.attachments.find(
       (a) => a.name === "video" || a.contentType?.includes("video")
