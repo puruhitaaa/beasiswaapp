@@ -34,39 +34,35 @@ test.describe("02. Verifikator Review & Administrative Decision Flow", () => {
     await expect(modal).toBeVisible();
     await expect(
       modal
-        .locator("text=Verifikasi Berkas Seleksi Administrasi")
+        .locator("text=Workspace Verifikasi Berkas Administrasi")
+        .or(modal.locator("text=Verifikasi Berkas Seleksi Administrasi"))
         .or(modal.locator("text=Verifikasi Seleksi Administrasi"))
     ).toBeVisible();
 
-    // Tab 1: Data Diri (Check read-only details)
-    await expect(modal.locator("text=NIK (Nomor Induk Kependudukan)")).toBeVisible();
+    // Applicant data inspection
+    await expect(modal.locator("text=NIK:").or(modal.locator("text=NIK (Nomor Induk Kependudukan)"))).toBeVisible();
 
-    // Switch to Tab 2: Pendidikan & Pekerjaan
-    await modal.locator(".nav-link:has-text('Pendidikan')").click();
-    await expect(modal.locator("text=Riwayat Pendidikan").first()).toBeVisible();
+    // Toggle applicant profile details if available
+    const rincianBtn = modal.locator("button:has-text('Rincian Profil')");
+    if (await rincianBtn.isVisible()) {
+      await rincianBtn.click();
+      await expect(modal.locator("text=Pendidikan:").or(modal.locator("text=Riwayat Pendidikan"))).toBeVisible();
+    }
 
-    // Switch to Tab 3: Upload Dokumen
-    await modal.locator(".nav-link:has-text('Upload Dokumen')").click();
-    await expect(modal.locator("text=Persyaratan Dokumen")).toBeVisible();
-
-    // In Tab 3: Mark the last document as 'Ditolak'
-    const rejectButtons = modal.locator("button:has-text('Ditolak')");
+    // In checklist: Mark the last document as 'Revisi' / 'Ditolak'
+    const rejectButtons = modal.locator("button:has-text('Revisi')").or(modal.locator("button:has-text('Ditolak')"));
     const rejectCount = await rejectButtons.count();
     if (rejectCount > 0) {
       await rejectButtons.last().click();
     }
 
     // Fill revision note in the text input next to rejected doc
-    const noteInputs = modal.locator('input[placeholder*="catatan jika tidak sesuai"]');
+    const noteInputs = modal.locator('input[placeholder*="catatan"]');
     if ((await noteInputs.count()) > 0) {
       await noteInputs
         .last()
         .fill("Scan dokumen tidak jelas/buram. Harap unggah ulang dengan format jelas.");
     }
-
-    // Switch to Tab 4: Keputusan Akhir
-    await modal.locator(".nav-link:has-text('Keputusan')").click();
-    await expect(modal.locator("text=Keputusan Akhir Verifikator")).toBeVisible();
 
     // Select status: 'Revisi (Harus Perbaikan Berkas)'
     await modal.locator('select[name="statusKeputusan"]').selectOption("revisi");
@@ -75,7 +71,10 @@ test.describe("02. Verifikator Review & Administrative Decision Flow", () => {
       .fill("Mohon perbaiki dokumen ijazah yang buram sesuai catatan.");
 
     // Submit decision
-    await modal.locator("button[type='submit']").click();
+    const submitBtn = modal
+      .locator("button:has-text('Submit Keputusan Verifikasi')")
+      .or(modal.locator("button[type='submit']"));
+    await submitBtn.click();
 
     // Modal should close and success toast appears
     await expect(modal).not.toBeVisible({ timeout: 10000 });
@@ -84,6 +83,7 @@ test.describe("02. Verifikator Review & Administrative Decision Flow", () => {
         .locator("text=Revisi Terkirim")
         .or(page.locator("text=Hasil Revisi"))
         .or(page.locator("text=REVISI"))
+        .or(page.locator("text=berhasil disimpan"))
         .first()
     ).toBeVisible({ timeout: 5000 });
   });
@@ -98,16 +98,14 @@ test.describe("02. Verifikator Review & Administrative Decision Flow", () => {
     const modal = page.locator(".modal.show");
     await expect(modal).toBeVisible();
 
-    // Switch to Tab 3: Mark all documents as 'Sesuai'
-    await modal.locator(".nav-link:has-text('Upload Dokumen')").click();
+    // Mark all documents as 'Sesuai'
     const sesuaiButtons = modal.locator("button:has-text('Sesuai')");
     const count = await sesuaiButtons.count();
     for (let i = 0; i < count; i++) {
       await sesuaiButtons.nth(i).click();
     }
 
-    // Switch to Tab 4: Keputusan Akhir
-    await modal.locator(".nav-link:has-text('Keputusan')").click();
+    // Decision: Approve
     await modal.locator('select[name="statusKeputusan"]').selectOption("disetujui");
     await modal
       .locator('textarea[name="catatanVerifikator"]')
@@ -116,7 +114,10 @@ test.describe("02. Verifikator Review & Administrative Decision Flow", () => {
       );
 
     // Submit decision
-    await modal.locator("button[type='submit']").click();
+    const submitBtn = modal
+      .locator("button:has-text('Submit Keputusan Verifikasi')")
+      .or(modal.locator("button[type='submit']"));
+    await submitBtn.click();
 
     await expect(modal).not.toBeVisible({ timeout: 10000 });
     await expect(

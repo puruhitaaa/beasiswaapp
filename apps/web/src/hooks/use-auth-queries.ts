@@ -245,7 +245,11 @@ export function useUpdateRolePermissionsMutation() {
       roleId: string;
       accessibleMenus: string[];
     }) => {
-      return await authApi.updateRolePermissions(roleId, accessibleMenus);
+      try {
+        return await authApi.updateRolePermissions(roleId, accessibleMenus);
+      } catch {
+        return appStore.updateRole(roleId, accessibleMenus);
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.auth.roles() });

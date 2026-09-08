@@ -7,7 +7,7 @@ export function createPrismaClient() {
     process.env.DATABASE_URL || "mysql://rbac_user:password@localhost:3306/rbac_db";
   const url = new URL(databaseUrl);
   const connectionConfig = {
-    host: url.hostname,
+    host: url.hostname === "localhost" ? "127.0.0.1" : url.hostname,
     port: parseInt(url.port || "3306"),
     user: url.username,
     password: url.password,

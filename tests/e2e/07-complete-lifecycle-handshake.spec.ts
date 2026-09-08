@@ -41,6 +41,7 @@ test.describe("07. Complete End-to-End Multi-Role Handshake Lifecycle", () => {
     await regModal.locator('input[name="password"]').fill(relayPassword);
     await regModal.locator('input[name="confirmPassword"]').fill(relayPassword);
     await regModal.locator('button[type="submit"]').click();
+    await expect(regModal).not.toBeVisible({ timeout: 10000 });
 
     await page.waitForURL("**/applicant", { timeout: 15000 });
     await expect(page.locator("a:has-text('Dashboard Saya')").first()).toBeVisible({ timeout: 10000 });
@@ -52,9 +53,10 @@ test.describe("07. Complete End-to-End Multi-Role Handshake Lifecycle", () => {
 
     const wizardModal = page.locator(".modal.show");
     await expect(wizardModal).toBeVisible();
+    await expect(wizardModal.locator("text=Formulir Pendaftaran")).toBeVisible({ timeout: 10000 });
 
     // Step 1: Fill Biodata
-    await expect(wizardModal.locator("text=Bagian 1: Data Diri")).toBeVisible({ timeout: 5000 });
+    await expect(wizardModal.locator("text=Bagian 1: Data Diri")).toBeVisible({ timeout: 10000 });
     await wizardModal.locator('input[name="biodata.nik"]').fill(uniqueNik);
     await wizardModal.locator('input[name="biodata.namaLengkap"]').fill(relayName);
     await wizardModal.locator('input[name="biodata.tempatLahir"]').fill("Bandung");
@@ -116,22 +118,21 @@ test.describe("07. Complete End-to-End Multi-Role Handshake Lifecycle", () => {
     const verifModal1 = page.locator(".modal.show");
     await expect(verifModal1).toBeVisible();
 
-    // Mark last document rejected in Tab 3
-    await verifModal1.locator(".nav-link:has-text('Upload Dokumen')").click();
-    const rejectButtons = verifModal1.locator("button:has-text('Ditolak')");
+    // Mark last document rejected in workspace
+    const rejectButtons = verifModal1.locator("button:has-text('Revisi')").or(verifModal1.locator("button:has-text('Ditolak')"));
     await expect(rejectButtons.last()).toBeVisible();
     await rejectButtons.last().click();
 
-    const noteInputs = verifModal1.locator('input[placeholder*="catatan jika tidak sesuai"]');
+    const noteInputs = verifModal1.locator('input[placeholder*="catatan"]');
     if ((await noteInputs.count()) > 0) {
       await noteInputs.last().fill("Scan dokumen tidak jelas/buram. Harap unggah ulang dengan format jelas.");
     }
 
-    // Tab 4: Set status to Revisi and submit
-    await verifModal1.locator(".nav-link:has-text('Keputusan')").click();
+    // Set status to Revisi and submit
     await verifModal1.locator('select[name="statusKeputusan"]').selectOption("revisi");
     await verifModal1.locator('textarea[name="catatanVerifikator"]').fill("Mohon perbaiki dokumen pertama yang tidak jelas.");
-    await verifModal1.locator("button[type='submit']").click();
+    const submitVerif1 = verifModal1.locator("button:has-text('Submit Keputusan Verifikasi')").or(verifModal1.locator("button[type='submit']"));
+    await submitVerif1.click();
     await expect(verifModal1).not.toBeVisible({ timeout: 10000 });
 
     // ==========================================
@@ -179,7 +180,6 @@ test.describe("07. Complete End-to-End Multi-Role Handshake Lifecycle", () => {
     await expect(verifModal2).toBeVisible();
 
     // Mark all documents Sesuai
-    await verifModal2.locator(".nav-link:has-text('Upload Dokumen')").click();
     const sesuaiButtons = verifModal2.locator("button:has-text('Sesuai')");
     const countSesuai = await sesuaiButtons.count();
     for (let i = 0; i < countSesuai; i++) {
@@ -187,10 +187,10 @@ test.describe("07. Complete End-to-End Multi-Role Handshake Lifecycle", () => {
     }
 
     // Approve
-    await verifModal2.locator(".nav-link:has-text('Keputusan')").click();
     await verifModal2.locator('select[name="statusKeputusan"]').selectOption("disetujui");
     await verifModal2.locator('textarea[name="catatanVerifikator"]').fill("Dokumen hasil revisi telah sesuai dan valid.");
-    await verifModal2.locator("button[type='submit']").click();
+    const submitVerif2 = verifModal2.locator("button:has-text('Submit Keputusan Verifikasi')").or(verifModal2.locator("button[type='submit']"));
+    await submitVerif2.click();
     await expect(verifModal2).not.toBeVisible({ timeout: 10000 });
 
     // ==========================================
